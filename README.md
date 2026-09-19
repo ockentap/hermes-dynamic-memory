@@ -241,7 +241,7 @@ docs/architecture.md         architecture deep-dive (code-level trace)
 docs/benchmark.md            native vs dynamic: resident cost + retrieval, with limitations
 docs/benchmark-raw-results.json  raw transcripts behind the benchmark
 docs/compression.md          measured compression + entry-capacity numbers
-docs/cohort-50.md            50-memory cohort: recall rate, and why the aggregate misleads
+docs/cohort-50.md            50-memory cohort: clean run, 58% vs 92%, with the two invalid runs documented
 docs/cohort-50-raw-results.json  raw answers for all 50 questions
 NOTICE                       attribution requirements for redistributors
 ```

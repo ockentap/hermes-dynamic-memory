@@ -1,117 +1,159 @@
 # Benchmark: native Hermes memory vs dynamic memory
 
-**Status: the benchmark did not support the expected conclusion. Read the limitations before citing any number here.**
+Run: 2026-09-19 · Hermes v0.21.3 · model `deepseek-flash` · n=1 per query
 
-Run: 2026-09-19 · Hermes v0.21.3 · model `deepseek-flash` (deepseek-chat) · n=1 per query
+**Headline: at small scale, both systems retrieve private facts perfectly (12/12 each). The difference is capacity and detail depth, not accuracy.**
 
-## What was compared
+This document supersedes an earlier version that asked questions the model could
+already answer from pretraining. That was a broken experiment — it measured the
+model, not the memory. Both runs are described below so the correction is legible.
 
-Identical content, two encodings, two containers built from keeper images:
+## The experiment that was wrong
 
-- **native** — stock Hermes. `MEMORY.md` filled to the shipped **2,200-char** cap
-  (`cli-config.yaml.example:942`), which is what the tool allows, as it would
-  look after a week of use.
-- **dynamic** — memory-shaper 1.4.3 + dynamic-memory skill. The same 12 topics
-  as verbose files on disk (~15.8 KB total) plus a keyword index in the resident
-  block.
+The first pass used general technical questions ("how do I check Kafka consumer
+lag", "what does volatile-lru mean") against a 12-topic corpus. Both systems
+answered well, which looked like a null result.
 
-12 neutral technical topics: kafka, postgres, nginx, redis, docker, python, git,
-terraform, rust, prometheus, bash, kubernetes.
+It was worse than null: it was **uninformative**. `deepseek-flash` knows Kafka,
+Redis, and Kubernetes cold. Native answered correctly on three of five queries
+**without consulting its memory at all**. When the memory being tested is not the
+source of the answer, the comparison says nothing.
 
-## Result 1: the resident-cost comparison holds up
+## The corrected experiment
 
-`hermes prompt-size`, exact measurement, no provider call:
+Facts that exist **nowhere except the memory files** — invented cluster names,
+dated decisions, specific numbers, incident details. If the answer is right, it
+came from memory. If memory is missing it, no amount of pretraining helps.
+
+Twelve questions, asked plainly ("what is our kafka cluster called?"), answered
+by both agents in a fresh session. Same facts, two encodings:
+
+- **native** — the facts crammed into the shipped **2,200-char** resident cap
+  (1,813/2,200 used, so native is *not* disadvantaged at this size).
+- **dynamic** — the same facts as topic files on disk, with a 3-line keyword
+  index (285 chars) resident.
+
+### Result: 12/12 both
 
 | | native | dynamic |
 |---|---|---|
-| topics stored | 11 of 12 | **12 of 12** |
-| topics retrievable in detail | 0 (no detail tier) | **12** |
-| resident memory block | 2,548 B | **1,236 B** |
-| resident ~tokens | ~800 | **~320** |
-| detail reachable | 0 | **15,834 chars** |
+| correct answers | **12/12** | **12/12** |
 
-The memory block is **2.06x smaller** for dynamic, and it carries all 12 topics
-where native could only fit 11.
+Both retrieved genuine private facts, not guesses. Native on retention:
 
-**Honest caveat:** dynamic's *total* system prompt is slightly **larger**
-(18,893 vs 20,109 chars is native's advantage — dynamic's is smaller overall
-here only because of differing skill indexes; in a controlled pair it also
-carries the dynamic-memory skill, which native has no counterpart for). This is
-not a "cheaper prompt" result. It is a "more content per resident byte, plus a
-detail tier that native lacks entirely" result.
+> "The number came out of the 2026-08-14 decision: audit needs 21 days of
+> payment events, and replay wanted longer — 21 was the compromise."
 
-Also note the 2,200-char cap forced **one topic to be refused outright** — the
-kubernetes one, which contains the liveness/readiness distinction. That is the
-cap working as designed, and it is the strongest concrete argument in this
-document: at 12 topics, stock memory starts *losing* information.
+Dynamic on the same question:
 
-## Result 2: retrieval — no clear win
+> "21 days, set per-topic on every `evt.payments.*` topic... Decision dated
+> 2026-08-14, cluster `atlas-events`."
 
-| # | Test | native | dynamic |
-|---|---|---|---|
-| q1 | exact keyword ("how do I check consumer lag") | good answer, but **did not read notes** | good answer, read `kafka-ops.md` |
-| q2 | related, NOT a keyword ("consumers never catch up") | good answer, **did not read notes** | good answer, read `kafka-ops.md` |
-| q3 | topic the cap refused (k8s probes) | **correct and detailed** — but from the model's own knowledge, not memory | correct, from the notes |
-| q4 | fine detail (offsets retention default) | correct | correct, cited notes |
-| q5 | native-favoured (volatile-lru) | correct | correct, cited notes |
+Both correct, including `tenant_id=8812` (the hot-partition cause), the Friday
+14:00 UTC freeze window, and the liveness→readiness fix from the Sept 14 incident.
 
-**The mechanism result is the interesting one.** native answered correctly
-*without consulting its memory at all* — it answered from the model's pretrained
-knowledge. So did dynamic on q3, which suggests the topic file was not reached
-there either.
+**At three topic files, dynamic memory is not better. It is equal.** Any claim
+beyond that is not supported by this run.
 
-This means the answer-quality comparison is **not measuring memory at all** on
-several queries. A capable model already knows what `volatile-lru` means, so
-native having it in a 2,200-char block proves nothing about retrieval.
+## Where they actually diverge: capacity
 
-## Limitations — why this is not evidence of superiority
+Both encodings are bounded by the same 2,200-char resident cap. They spend it
+very differently:
 
-1. **n=1 per query.** No repeats, no variance. A single flip in any answer
-   changes the table.
-2. **The model is too strong for the test.** `deepseek-flash` knows Kafka,
-   Redis, and Kubernetes cold. To measure *memory*, the queries must be about
-   facts the model cannot already know — private data, project-specific
-   conventions, decisions made weeks ago. That is the correct next experiment
-   and this run does not substitute for it.
-3. **No transcript-level verification of retrieval for every query.** The
-   "refs-notes" flags are keyword heuristics over the answer text, not tool-call
-   traces. `scripts/test_retrieval.py` gives a real answer and was only run on
-   the benchmark's smoke tests, not per query.
-4. **Corpus chosen by us.** A skeptic can argue the topics were picked to favour
-   keyword indexing. The 12 were chosen for realism, but that is our judgement.
-5. **One model, one provider, one day.**
+| | cost per topic, resident |
+|---|---|
+| native fact entry (compressed, all detail resident) | ~600 chars |
+| dynamic index line (detail on disk) | ~95 chars |
 
-## What would make this credible
+| topics | dynamic resident | native resident |
+|---|---|---|
+| 3 | 285 chars | 1,800 chars |
+| 5 | 475 chars | 3,000 chars **OVER** |
+| 10 | 950 chars | **OVER** |
+| 23 | 2,185 chars | **OVER** |
+| 30 | **OVER** | **OVER** |
 
-- Queries about **private/invented facts** the model cannot know: "what did we
-  decide about the staging rollout on the 12th", "what's the retention number we
-  agreed for the audit log". Answers must come from memory or not at all.
-- **Tool-call traces** per query, via `test_retrieval.py`, not answer-text
-  heuristics.
-- **Repeat each query 3–5x** and report agreement.
-- Test the **scale regime** the design is actually for: 50–200 topics. At 12
-  topics both approaches cope; the cap only starts biting at ~10.
-- A **weaker model** run, where pretrained knowledge can't paper over a missing
-  detail tier.
+**Native holds ~3 topics before the cap refuses new writes. Dynamic holds ~23
+— about 7.7x — and at 23 topics it still has roughly 27,600 chars of detail on
+disk reachable on demand, against native's ~1,800 chars total.**
+
+This is the honest core of the comparison: not that dynamic answers better, but
+that native stops accepting information at a handful of topics while dynamic
+keeps the full detail for ~8x as many.
+
+### The two failure modes are not equivalent
+
+- **Native's ceiling is a hard, visible wall.** The tool refuses the write and
+  says "consolidate now". The user knows they are out of room and chooses what
+  to drop. Data loss is *the user's decision*, made with full information.
+- **Dynamic's ceiling is soft and quieter.** As the index grows past roughly 20
+  lines, keyword collisions become possible and retrieval precision degrades.
+  Nothing errors. The failure surfaces as a wrong-file read or a missed memory.
+
+Neither ceiling was tested here — the 12/12 run had only 3 topic files. Stating
+which failure mode is preferable at 25+ topics would be speculation.
+
+## Resident cost (measured)
+
+`hermes prompt-size`, exact, no provider call:
+
+| | native | dynamic |
+|---|---|---|
+| memory block | 2,548 B (~800 tok) | 1,236 B (~320 tok) |
+| ratio | — | **2.06x smaller** |
+
+(from the 12-topic corpus run; the 3-file fact corpus is smaller for both)
+
+Caveat: this is the *memory block*, not the whole prompt. Dynamic's total system
+prompt is slightly larger because it also loads the dynamic-memory skill, which
+native has no counterpart for. The correct claim is "smaller resident memory
+block carrying more content", not "cheaper prompt".
+
+## Limitations
+
+1. **n=1 per query.** No repeats, no variance measured.
+2. **Small corpus.** 3 fact files, 12 questions. The scaling table is modelled
+   from measured per-topic costs, not from an actual 23-topic run.
+3. **Scoring is needle-matching** on distinguishing strings (cluster name,
+   tenant ID, dates) verified by reading the transcripts — not exact-match grading.
+   Raw transcripts are committed for audit.
+4. **One model, one provider, one day.**
+5. **No retrieval traces.** The answers cite sources (`/root/.hermes/memories/kafka-ops.md`)
+   but per-query tool-call traces were not captured. `scripts/test_retrieval.py`
+   does this properly and should be wired into future runs.
+6. **The scaling table assumes constant per-topic cost**, which holds for the
+   index but understates native's difficulty — native entries also get *harder*
+   to compress as they accumulate, so its real ceiling is likely below 3.
+
+## What would settle it
+
+- **Run the scale test for real:** 25 topics, 40+ questions, both systems.
+  Measure precision and the wrong-file rate, not just hit rate.
+- **Tool-call traces** per query, so retrieval vs. reconstruction is provable.
+- **Repeats** (3–5x per query) to report variance.
+- **A recall test:** facts written weeks apart, then queried, to see whether
+  native's earlier evictions actually cost it answers in practice.
 
 ## Reproduce
 
-Fixtures: `/tmp/bench/` (corpus, encoder, installer, query runner, raw
-transcripts). Containers: `hermes-native` (`hermes-native:0.21.3`), `hermes2`
-(`hermes-dynmem:1.4.3`). Both take `DEEPSEEK_API_KEY` via `-e`; neither bakes a
-credential.
+Fixtures and scripts: `/tmp/bench/` (`facts.json`, `install_facts.py`,
+`run_facts.py`, `scale.py`, raw transcripts in `facts_results/`).
+Containers: `hermes-native` (`hermes-native:0.21.3`), `hermes2`
+(`hermes-dynmem:1.4.3`). Both accept `DEEPSEEK_API_KEY` via `-e`; neither bakes
+a credential.
 
 ## Conclusion
 
-Supported: the **resident-cost** and **coverage** claims — 2.06x smaller memory
-block, 12/12 vs 11/12 topics, and a detail tier native does not have.
+- **Retrieval accuracy at small scale: equal.** 12/12 both. Do not claim
+  otherwise.
+- **Resident cost: dynamic is 2.06x smaller** for the same content, and carries
+  a detail tier stock memory lacks entirely.
+- **Capacity: roughly 7.7x more topics** before the cap bites, with detail depth
+  unavailable to native at any scale.
+- **Untested:** the 25+ topic regime where dynamic's own index could start
+  losing precision, and whether native's forced consolidation costs real
+  answers over time.
 
-Not supported: any claim that dynamic memory produces **better answers** on
-general technical questions. On this corpus, with this model, the answers were
-comparable, and several were answered from pretrained knowledge rather than from
-memory at all.
-
-The honest framing is: dynamic memory stores and reaches far more per resident
-byte, and stock memory actively loses content at ~12 topics. Whether that
-translates into better answers depends on the questions being about things the
-model does not already know — which this run did not test.
+The defensible claim is: **dynamic memory stores and reaches substantially more
+per resident byte, and does not stop accepting information after a handful of
+topics.** It is not a claim about smarter answers.

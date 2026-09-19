@@ -243,13 +243,19 @@ docs/benchmark-raw-results.json  raw transcripts behind the benchmark
 NOTICE                       attribution requirements for redistributors
 ```
 
-**Note on the benchmark:** [`docs/benchmark.md`](docs/benchmark.md) reports a
-**mixed** result and is written to be read sceptically. The resident-cost and
-coverage claims hold (2.06x smaller memory block, 12/12 topics vs 11/12, plus a
-detail tier stock memory lacks). Claims about *better answers* do not hold on the
-corpus tested — the model answered several questions from pretrained knowledge
-without consulting memory at all. The document lists what a credible follow-up
-would need.
+**Note on the benchmark:** [`docs/benchmark.md`](docs/benchmark.md) is written to
+be read sceptically, and its first section documents an experiment that was
+**wrong** — asking general technical questions the model could already answer
+from pretraining, which measures the model rather than the memory.
+
+The corrected run uses invented private facts (cluster names, dated decisions,
+incident details) that exist only in the memory files. At three topic files the
+result is a **tie: 12/12 each**. The real difference is capacity — stock memory
+holds roughly 3 topics before its 2,200-char cap refuses new writes, while the
+keyword index holds roughly 23, with the detail on disk.
+
+The defensible claim is more content per resident byte and a much higher topic
+ceiling. It is **not** a claim that dynamic memory produces better answers.
 
 The examples are **synthetic** — invented topics (JVM tuning, a frontend build
 chain, home network admin) chosen to demonstrate the two hard cases: a literal

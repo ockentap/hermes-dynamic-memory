@@ -244,18 +244,22 @@ NOTICE                       attribution requirements for redistributors
 ```
 
 **Note on the benchmark:** [`docs/benchmark.md`](docs/benchmark.md) is written to
-be read sceptically, and its first section documents an experiment that was
-**wrong** — asking general technical questions the model could already answer
-from pretraining, which measures the model rather than the memory.
+be read sceptically, and it opens by documenting an experiment that was **wrong**
+— asking general technical questions the model could already answer from
+pretraining, which measures the model rather than the memory.
 
-The corrected run uses invented private facts (cluster names, dated decisions,
-incident details) that exist only in the memory files. At three topic files the
-result is a **tie: 12/12 each**. The real difference is capacity — stock memory
-holds roughly 3 topics before its 2,200-char cap refuses new writes, while the
-keyword index holds roughly 23, with the detail on disk.
+Three corrected experiments, using invented private facts that exist only in the
+memory files:
 
-The defensible claim is more content per resident byte and a much higher topic
-ceiling. It is **not** a claim that dynamic memory produces better answers.
+- **Direct questions, 3 topics** → tie, 12/12 both.
+- **Fuzzy prompts sharing zero keywords with the index** → tie, 12/12 both.
+- **8 topics (past the 2,200-char cap)** → stock memory does not refuse, it
+  **consolidates**: one entry truncated mid-sentence, one fact dropped, while the
+  keyword index kept all 8 topics fully answerable at ~1/8 the resident cost.
+
+The defensible claim is **equivalent retrieval plus a much higher ceiling before
+information is lost** — not that dynamic memory answers better. The size at which
+loss becomes materially harmful is not yet measured.
 
 The examples are **synthetic** — invented topics (JVM tuning, a frontend build
 chain, home network admin) chosen to demonstrate the two hard cases: a literal

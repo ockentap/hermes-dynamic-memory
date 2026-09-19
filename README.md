@@ -132,16 +132,37 @@ That always-on index block is the **entire** overhead. As a comparison point: a 
    python3 scripts/verify_index.py ./candidate-MEMORY.md --memdir ~/.hermes/memories
    ```
    It exits 0 when every line is well-formed, every target exists, and no topic file on disk is unreachable.
-4. **Test the hooks** —
+4. **Test the hooks** — the unit suite checks the *logic*; it calls the handler directly and bypasses Hermes' dispatch, so it cannot detect a hook that never loads.
    ```bash
-   python3 scripts/test_hook_cases.py
+   python3 scripts/test_hook_cases.py      # logic: reads pass, every write vector blocks
    ```
-   Reads pass, every write vector blocks.
-5. **Try the demo first (optional)** — the example index in this repo validates clean, so you can see the target layout before restructuring your own:
+   Then confirm the *wiring* against a live session:
+   ```bash
+   hermes plugins list | grep memory-shaper     # must say "enabled"
+   hermes plugins doctor memory-shaper          # must say OK, with no warnings
+   hermes chat -q "Use write_file to append the word TEST to ~/.hermes/memories/MEMORY.md."
+   # expect a refusal naming memory-shaper — if the write lands, the hook is not loaded
+   ```
+5. **Verify retrieval end-to-end** — the step most likely to be skipped, and the one that catches the silent failure. Ask a question sharing **no literal keyword** with the index, then check the transcript:
+   ```bash
+   python3 scripts/test_retrieval.py --last --expect <topic-file>.md --check-prompt
+   ```
+   It distinguishes routing from brute-force search, including the three cases where a `search_files` call is *not* a failure. If it reports the file was located by search, your routing instruction is not reaching the model — see [Making retrieval actually fire](#making-retrieval-actually-fire).
+6. **Try the demo first (optional)** — the example index in this repo validates clean, so you can see the target layout before restructuring your own:
    ```bash
    python3 scripts/verify_index.py examples/memories/MEMORY.md
    # 8 lines OK, 0 bad lines, 0 orphaned files
    ```
+
+## Troubleshooting
+
+The skills ship a full symptom → cause → fix decision tree at [`skill/references/diagnosing-recall-failure.md`](skill/references/diagnosing-recall-failure.md). Every failure mode in this system is silent — a dead index line, an unloaded hook, and a missing routing instruction produce identical observable behaviour — so the reference exists to make them distinguishable. The three that go unnoticed longest:
+
+1. **No routing instruction.** Answers look correct because the model brute-forces the file. Only a transcript inspection reveals it.
+2. **Orphaned topic files.** Content exists; nothing points at it. Only the validator reveals it.
+3. **Unloaded hook.** Format drifts freely until the index is already corrupt.
+
+If you hit a failure the decision tree does not cover, please open an issue with the transcript excerpt — that is how this list gets built.
 
 ## Porting to other agents
 
@@ -170,9 +191,10 @@ If you know of prior art we've missed, please open an issue.
 
 ```
 plugin/memory-shaper/        the enforcement plugin (drop into ~/.hermes/plugins/)
-skill/                       the dynamic-memory skill (write protocol + format rules)
+skill/                       the dynamic-memory skill + diagnostic references
 scripts/verify_index.py      index validator (arrows, targets, keyword bounds, orphans)
-scripts/test_hook_cases.py   hook test suite: reads pass, every write vector blocks
+scripts/test_hook_cases.py   hook logic test: reads pass, every write vector blocks
+scripts/test_retrieval.py    did retrieval route from the index, or brute-force search?
 examples/memories/           synthetic demo index + topic files (fully fictional)
 examples/demo-retrieval.md   worked demo: set matching and associative jumps
 docs/architecture.md         architecture deep-dive (code-level trace)

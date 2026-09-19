@@ -243,6 +243,9 @@ docs/benchmark-raw-results.json  raw transcripts behind the benchmark
 docs/compression.md          measured compression + entry-capacity numbers
 docs/cohort-50.md            50-memory cohort: clean run, 58% vs 92%, with the two invalid runs documented
 docs/cohort-50-raw-results.json  raw answers for all 50 questions
+docs/complexity.md           complex structured memories: native loses them whole, 37% vs 100%
+docs/complexity-raw-results.json  raw answers for all 30 detail probes
+docs/nested-memories-future.md    future concept: nested memory routing + its blockers
 NOTICE                       attribution requirements for redistributors
 ```
 

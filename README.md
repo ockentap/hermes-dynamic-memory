@@ -1,0 +1,198 @@
+# hermes-dynamic-memory
+
+**Dynamic memory for AI agents: a ~400-token keyword index lives in the system prompt, verbose topic files stay on disk, and a plugin keeps the index well-formed.**
+
+A production-tested pattern for personal agent memory — no vector database, no embedding calls, no retrieval infrastructure. Just an index file and a convention.
+
+```markdown
+# Memory Index — keyword,keyword,keyword → file.md
+!!how,write,memory,format,keyword,entry,template → how-to-write-memories.md
+!project,deploy,release,pipeline,staging,rollback → project-deploys.md
+camera,photography,dslr,lens,aperture,exposure,tripod → camera-gear.md
+travel,visa,flight,hotel,itinerary,passport → travel-planning.md
+finances,budget,taxes,deduction,filing,deadline → money-admin.md
+```
+
+Every line is a pointer. `camera-gear.md` can be as long and detailed as it needs to be — it costs nothing until the conversation actually touches photography.
+
+---
+
+## The problem with always-on memory
+
+Most agent memory systems (including the default `MEMORY.md` in Hermes, Claude Code, and OpenClaw) inject one curated memory file into every session. It works well until it doesn't:
+
+- **Budget pressure.** Every fact competes for the same character cap. You end up deleting useful history, or truncating it silently.
+- **Uniform cost for non-uniform value.** A recipe you need once a month costs exactly as much context as an API quirk you hit daily.
+- **Unbounded growth, bounded context.** Memory that's genuinely useful over years cannot fit in a prompt that's rebuilt every turn.
+
+The fix isn't a bigger prompt or a database. It's splitting memory into **a tiny always-resident index** and **unlimited on-demand detail**.
+
+## Architecture
+
+Two tiers, one index line per topic:
+
+```
+                  session start
+                       │
+         ┌─────────────▼──────────────┐
+         │ MEMORY.md  (~400 tokens)   │  injected into the system prompt
+         │ keyword,keyword → file.md  │  as a frozen snapshot
+         └─────────────┬──────────────┘
+                       │  model evaluates the conversation
+                       │  against the keyword SETS
+         ┌─────────────▼──────────────┐
+         │  read the best-matching    │
+         │  topic file(s) in full     │
+         └─────────────┬──────────────┘
+                       ▼
+   ~/.hermes/memories/<slug>.md    verbose markdown, unlimited size,
+   (as many files as you need)     written with normal file tools,
+                                   never in context unless routed to
+```
+
+**Design rules**
+
+- **One line per topic file** — 5–20 lowercase comma-separated keywords. The floor forces you to think about where a file will be looked up from; the ceiling stops keyword sprawl.
+- **Qualifier prefixes** (`!!` critical, `!` pinned) are user-assigned only — the agent never tags its own entries. Tagged lines are never pruned or reordered.
+- **Ordering is access-driven.** Most-read topics float to the top; when the index hits its character cap, pruning happens at the bottom.
+- **Keywords are maintained with the file.** Adding a concept to a topic file without adding matching keywords creates content nothing can ever reach.
+
+## Retrieval: set-level matching with model-side fuzz
+
+This is where the approach differs from both naive keyword lookup and embedding RAG.
+
+**1. The whole keyword set is scored, not individual keywords.**
+
+The conversation says *"the golf car battery is dead."* Per-keyword matching hits `golf` in the golf line and `car` in the car line and ranks them equally — the agent reads the wrong file. Set-level matching sees that the car line's full set (`car,maintenance,transmission,oil,tires`) is denser and more specific here than the golf line's (`golf,clubs,swing,handicap`), and routes correctly. That entire collision class disappears.
+
+**2. The model does the semantic matching, over a literal index.**
+
+*"I'm thinking of upgrading my DSLR"* contains no `dslr` keyword anywhere in the index. The model — already in the loop — makes the jump DSLR → `camera,photography,lens` and reads the camera file before answering. Fuzziness comes from the model, not an embedding engine: no vector store, no ANN index, no similarity threshold to tune, no API cost, nothing to keep in sync.
+
+The index block ends with routing instructions to that effect: *treat these lines as a routing table; prefer the line whose keyword set matches best overall; follow related terms that aren't spelled out in the line.*
+
+**What you trade away.** Recall depends on the agent following the routing instructions (frontier models do this reliably; smaller models benefit from a repeated nudge in the skill file) and on index hygiene — which is what the enforcement layer below is for. There is no fallback search in the core design. You can run one alongside it, but keep it separate rather than coupling it to the index.
+
+## Governance: the memory-shaper plugin
+
+A self-editing memory is both the feature and the failure mode. Left unguarded, an agent can quietly destroy the index it depends on. The plugin ([`plugin/memory-shaper/`](plugin/memory-shaper/)) hooks the tool-call paths and enforces structural guarantees:
+
+| Failure mode | The guard |
+|---|---|
+| Index clobbering | A `replace` must match **exactly one** entry line (0 or >1 → refused), and a replacement may never reduce the entry count by more than one |
+| Format drift | Lines are validated on write: Unicode `→` only, bare `*.md` targets, 5–20 lowercase keywords, no prose. Rejections carry an actionable fix message instead of silently passing |
+| Path tricks | Index targets must be bare filenames — no paths, no `../` escapes |
+| Write-vector bypass | `write_file`, `patch`, shell redirects, `tee`, `sed -i`, and command substitution all bypass the `memory` tool's guarantees, so **all** non-`memory` tools are blocked when their arguments reference the index |
+| Audit lockout | Read-only commands (`cat`, `grep`, `wc`, `diff`, `stat`, …) pass through, so the agent can always inspect the file it maintains |
+| Orphan rot | The validator flags topic files with no index line (unreachable content) and index lines pointing at missing files, on every candidate write |
+
+See [`examples/`](examples/) for a runnable demo index and a worked retrieval walkthrough, and [`scripts/`](scripts/) for the validator and hook test suite.
+
+## What it costs
+
+| | Tokens |
+|---|---|
+| Session start (index block, ~60 lines / ~500 keywords) | ~350–500 |
+| Per retrieval | one file read — a few hundred to a few thousand, only when routed |
+| Retrieval infrastructure | zero |
+
+That always-on index block is the **entire** overhead. As a comparison point: a single vector-DB retrieval round-trip usually costs more than an index line costs across an entire session. For personal-scale memory (tens to hundreds of files, not millions of documents), a database loses on cost *and* on transparency — the index is plain text you can read and edit by hand.
+
+**Scale, honestly:** this is designed for personal agent memory — tens to low hundreds of topic files. Beyond that, split by profile or by tier (pinned / active / archive) rather than reaching for a database.
+
+## Install
+
+1. **Plugin** — copy `plugin/memory-shaper/` into `~/.hermes/plugins/` and enable it in `config.yaml`. Paths resolve via `HERMES_HOME` (default `~/.hermes`). Requires a Hermes build with pre/post tool-call hooks and `tool_execution` middleware.
+2. **Skill** — copy `skill/` to `~/.hermes/skills/system-administration/dynamic-memory/` so the agent learns the write protocol and format rules.
+3. **Adopt the format** — restructure `MEMORY.md` into one `keywords → file.md` line per topic, moving the verbose content into topic files. Then validate:
+   ```bash
+   # index and topic files side by side (the normal layout)
+   python3 scripts/verify_index.py ~/.hermes/memories/MEMORY.md
+   
+   # or validate a candidate index against the live memory directory
+   python3 scripts/verify_index.py ./candidate-MEMORY.md --memdir ~/.hermes/memories
+   ```
+   It exits 0 when every line is well-formed, every target exists, and no topic file on disk is unreachable.
+4. **Test the hooks** —
+   ```bash
+   python3 scripts/test_hook_cases.py
+   ```
+   Reads pass, every write vector blocks.
+5. **Try the demo first (optional)** — the example index in this repo validates clean, so you can see the target layout before restructuring your own:
+   ```bash
+   python3 scripts/verify_index.py examples/memories/MEMORY.md
+   # 8 lines OK, 0 bad lines, 0 orphaned files
+   ```
+
+## Porting to other agents
+
+The format is one file plus a convention — nothing here is Hermes-specific. The minimum viable version is *an index file with `keywords → file.md` lines, plus a system-prompt instruction to read the best-matching file before answering*. The plugin is hardening, not a requirement.
+
+- **Claude Code / auto-memory** — keep `MEMORY.md` as the index, topic files beside it. Claude Code already reads the index at startup and reads files on demand; the change is making index lines keyword sets rather than descriptions.
+- **OpenClaw** — the same two-file shape applies; let the index route instead of a hybrid vector/BM25 layer (or run both).
+- **OpenHands** — keyword-triggered skills already use trigger-word frontmatter; a topic-file memory index works the same way at directory scope.
+- **Any file-tool agent** — two files, one convention, no dependencies.
+
+## Prior art, and what's different here
+
+The pattern class exists and pieces of it are documented elsewhere. Honest positioning:
+
+- **OpenHands keyword-triggered skills** — files with `triggers:` frontmatter loaded on literal keyword match. Same routing idea, but per-skill triggers, no index file, no set scoring, no governance.
+- **Claude Code auto-memory** — an index file loaded at startup with topic files read on demand. Index lines are one-line *descriptions*, not keyword sets, so matching is left entirely to the model's reading of prose.
+- **pi-memory-tree** — hierarchical keyword index to detail files. Structurally the closest match; no set-level matching, no enforcement layer.
+- **A-MEM / MemInsight** (academic) — LLM-generated keywords and tags per memory note, but with embedded/vector retrieval and graph linking rather than a literal always-resident index.
+- **mem0, Cognee, Letta/MemGPT, Zep** — database-backed memory layers. A different point on the curve: infrastructure for app-scale memory, versus a zero-dependency format for personal agents.
+
+**What this project adds:** (1) set-level keyword evaluation against the conversation, which eliminates single-keyword collisions; (2) model-side associative matching over a *literal* index, so no embeddings are involved anywhere; (3) a hook-enforced governance layer that treats the index as a locked artifact; (4) consolidated, tested tooling — validator, hook test suite, and skill — that you can drop into a running agent today.
+
+If you know of prior art we've missed, please open an issue.
+
+## Repo layout
+
+```
+plugin/memory-shaper/        the enforcement plugin (drop into ~/.hermes/plugins/)
+skill/                       the dynamic-memory skill (write protocol + format rules)
+scripts/verify_index.py      index validator (arrows, targets, keyword bounds, orphans)
+scripts/test_hook_cases.py   hook test suite: reads pass, every write vector blocks
+examples/memories/           synthetic demo index + topic files (fully fictional)
+examples/demo-retrieval.md   worked demo: set matching, and DSLR → camera association
+docs/architecture.md         architecture deep-dive (code-level trace)
+NOTICE                       attribution requirements for redistributors
+```
+
+The examples are **synthetic** — invented hobbies and admin topics, chosen to show the golf+car / golf+clubs collision and the DSLR → camera jump. No real memory data is published here.
+
+## Limitations
+
+- Routing quality is model-dependent: the index instructs, it doesn't force. (The plugin *does* force format compliance.)
+- Keyword choice is the craft. Vague keywords cost more than missing ones; the 5-keyword floor is a forcing function.
+- No standardized benchmark numbers (LoCoMo and similar) yet — this is engineering from production use, not a research claim. PRs welcome.
+- Single-user, single-machine by design. Multi-agent sharing works through profile separation, not concurrent writes.
+- Validated primarily on Linux; the plugin and scripts are plain Python and stdlib-only, so other platforms should work but are untested.
+
+## Contributing
+
+Issues and PRs welcome — especially porting notes for other agent frameworks,
+validator edge cases, and benchmark results.
+
+## Attribution
+
+This project is **hermes-dynamic-memory by ockentap** —
+https://github.com/ockentap/hermes-dynamic-memory
+
+Licensed under the Apache License, Version 2.0. If you redistribute it, or a
+derivative work based on it, you must:
+
+- retain the [LICENSE](LICENSE) and [NOTICE](NOTICE) files, and
+- credit the original project in your documentation, about screen, or credits
+  where other third-party notices appear.
+
+You may use this software commercially and in closed-source products. You may
+not present it, or a substantial portion of it, as your own original work, and
+the project name and the identifier "ockentap" may not be used to endorse or
+name derived products without written permission (Apache-2.0, Section 6).
+See [NOTICE](NOTICE) for the full text.
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).

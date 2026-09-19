@@ -1,6 +1,6 @@
 # Complexity benchmark: do verbose, structured memories survive?
 
-Run: 2026-09-19 · Hermes v0.21.3 · **model `deepseek-chat` via provider `deepseek`** · clean containers, one fresh session per probe
+Run: 2026-09-19 · Hermes v0.21.3 · **model `deepseek 4.1 flash`** (provider `deepseek`; configured as `deepseek-chat`) · clean containers, one fresh session per probe
 
 ## Why this test exists
 
@@ -109,7 +109,10 @@ if every entry uses the maximum keyword allowance.
    completely.
 3. **A leftover file contaminated two answers.** Future runs need a pruned
    container with no example fixtures present.
-4. **One model, one day.**
+4. **One model, one day.** Run on `deepseek 4.1 flash`, which prefers local
+   filesystem evidence over injected memory (see `pref_shell` below) and likely
+   inflates dynamic's failure count. A model with different tool-use habits would
+   move these numbers.
 
 ## What this establishes
 

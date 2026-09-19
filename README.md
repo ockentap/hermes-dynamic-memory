@@ -17,11 +17,11 @@ destroys while keeping the headline.
 Six such memories, each probed for every detail it contained. 30 probes per system.
 Clean containers, one fresh session per question, memory as the only possible source.
 
-**Conditions:** model `deepseek-chat` (provider `deepseek`), Hermes v0.21.3, native cap
-2,200 chars, 2026-09-19. The model is part of the result — it prefers local filesystem
-evidence over injected memory, which works *against* dynamic memory in these numbers.
-Verify it in any container with `grep -A2 "^model:" /root/.hermes/config.yaml`; the
-same conditions are stamped into every raw results file.
+**Conditions:** model `deepseek 4.1 flash` (provider `deepseek`; configured as
+`deepseek-chat`), Hermes v0.21.3, native cap 2,200 chars, 2026-09-19. The model is part
+of the result — it prefers local filesystem evidence over injected memory, which works
+*against* dynamic memory in these numbers. The same conditions are stamped into every
+raw results file.
 
 | | Native memory | Dynamic memory |
 |---|---|---|

@@ -1,6 +1,6 @@
 # Benchmark: native Hermes memory vs dynamic memory
 
-Run: 2026-09-19 · Hermes v0.21.3 · **model `deepseek-chat` via provider `deepseek`** · n=1 per query
+Run: 2026-09-19 · Hermes v0.21.3 · **model `deepseek 4.1 flash`** (provider `deepseek`; configured as `deepseek-chat`) · n=1 per query
 
 **Headline: the two systems are indistinguishable until stock memory fills up. Past that point, stock memory silently truncates and drops facts, and dynamic memory keeps answering.**
 
@@ -14,7 +14,7 @@ here so the correction is legible.
 Asked "how do I check Kafka consumer lag" and "what does volatile-lru mean"
 against a 12-topic corpus. Both systems answered well.
 
-This measured **the model, not the memory.** `deepseek-chat` knows Kafka and
+This measured **the model, not the memory.** `deepseek 4.1 flash` knows Kafka and
 Redis cold, and native answered correctly on 3 of 5 queries **without consulting
 its memory at all**. When the memory under test is not the source of the answer,
 the comparison says nothing. Discarded.

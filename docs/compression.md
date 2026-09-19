@@ -3,7 +3,7 @@
 Companion to [`benchmark.md`](benchmark.md). Every figure below is measured from
 the real fixtures in that run, not modelled, except where marked **arithmetic**.
 
-Run: 2026-09-19 · Hermes v0.21.3 · **model `deepseek-chat` via provider `deepseek`** · native cap 2,200 chars
+Run: 2026-09-19 · Hermes v0.21.3 · **model `deepseek 4.1 flash`** (provider `deepseek`; configured as `deepseek-chat`) · native cap 2,200 chars
 
 ## 1. Resident compression
 

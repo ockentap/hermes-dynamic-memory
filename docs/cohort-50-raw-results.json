@@ -1,12 +1,13 @@
 {
  "_benchmark_conditions": {
-  "model": "deepseek-chat",
+  "model": "deepseek 4.1 flash",
   "provider": "deepseek",
   "hermes_version": "0.21.3",
   "native_cap_chars": 2200,
   "date": "2026-09-19",
   "sessions": "one fresh session per question; session state wiped before install",
-  "note": "Model is part of the result: deepseek-chat prefers local filesystem evidence over injected memory, which inflates dynamic's failure count. See benchmarks/README.md."
+  "note": "Model is part of the result: deepseek 4.1 flash prefers local filesystem evidence over injected memory, which inflates dynamic's failure count. See benchmarks/README.md.",
+  "configured_as": "deepseek-chat (provider alias for this model)"
  },
  "results": [
   {

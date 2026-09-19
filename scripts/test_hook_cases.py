@@ -38,6 +38,12 @@ cases = [
     ("grep pattern",       "terminal",   {"command": f"grep 'kw1,kw2' {M}"},            False),
     ("write_file",         "write_file", {"path": M, "content": "x"},                   True),
     ("write_file other",   "write_file", {"path": "/tmp/other.md", "content": "x"},     False),
+    # Audit-lockout regression guard: read_file carries the SAME `path` field as
+    # write_file, so a path-only check wrongly refused reads of the index the
+    # agent is responsible for maintaining. Reads must always pass.
+    ("read_file index",    "read_file",  {"path": M},                                  False),
+    ("read_file other",    "read_file",  {"path": "/tmp/other.md"},                     False),
+    ("patch index",        "patch",      {"path": M, "old_string": "a", "new_string": "b"}, True),
 ]
 
 fails = 0

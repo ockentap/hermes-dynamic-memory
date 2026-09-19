@@ -1,10 +1,11 @@
 ---
 name: memory-shaper
-version: 1.4.1
-description: "Enforces the dynamic-memory architecture. Intercepts memory tool calls; verbose content goes to ~/.hermes/memories/<topic>.md and a one-line pointer to MEMORY.md, never inline verbose content. Enforces comma-to-word ratio heuristic (>=0.5) to catch human-language prose even when under the 140-char threshold. Also registers a tool_execution middleware (v1.2.0) because the memory tool is in _AGENT_LOOP_TOOLS and bypasses the pre_tool_call hook path. v1.3.0 (2026-09-16) — arrow regex matched both Unicode → and ASCII ->. v1.4.0 (2026-09-17) — REVERSED that: Unicode arrow ONLY, ASCII '->' is rejected in both ARROW_LINE_RE and _validate_arrow_target, with a specific 'Wrong arrow' message. (The v1.3.0 tolerance was itself the bypass: a form accepted 'so agents can't bypass the check' is still a second accepted form.)"
+version: 1.4.2
+description: "Enforces the dynamic-memory architecture. Keeps MEMORY.md as a flat keyword index and routes verbose content to ~/.hermes/memories/<topic>.md. Validates index-line format (Unicode arrow only, bare .md targets, 5-20 lowercase keywords), rejects human-language prose via a comma-to-word ratio check, and blocks every non-memory tool that would write to MEMORY.md — while always allowing reads so the agent can audit the index it maintains."
 author: ockentap
 license: Apache-2.0
 
 hooks:
   - pre_tool_call
-  - post_tool_call
+provides_hooks:
+  - pre_tool_call

@@ -69,9 +69,28 @@ The conversation says *"the java script for the build is broken."* Per-keyword m
 
 *"My laptop's fans won't stop spinning at idle"* contains no `fan` keyword anywhere in the index. The model — already in the loop — makes the jump fans → `thermal` and reads the hardware file before answering. Fuzziness comes from the model, not an embedding engine: no vector store, no ANN index, no similarity threshold to tune, no API cost, nothing to keep in sync.
 
-The index block ends with routing instructions to that effect: *treat these lines as a routing table; prefer the line whose keyword set matches best overall; follow related terms that aren't spelled out in the line.*
+The index block carries the routing instruction in the deployed configuration: *treat these lines as a routing table; prefer the line whose keyword set matches best overall; follow related terms that aren't spelled out in the line.* See [Making retrieval actually fire](#making-retrieval-actually-fire) for where that instruction lives and why it matters.
 
-**What you trade away.** Recall depends on the agent following the routing instructions (frontier models do this reliably; smaller models benefit from a repeated nudge in the skill file) and on index hygiene — which is what the enforcement layer below is for. There is no fallback search in the core design. You can run one alongside it, but keep it separate rather than coupling it to the index.
+**What you trade away.** Recall depends on the agent knowing to treat the index as a routing table, and on index hygiene — which is what the enforcement layer below is for.
+
+**Important:** stock Hermes injects the index block as-is, with no routing instructions attached. It renders your `MEMORY.md` under a `MEMORY (your personal notes)` header and stops there. The routing instruction therefore has to come from somewhere you control — the [`skill/`](skill/) file is the supported place for it (see [Making retrieval actually fire](#making-retrieval-actually-fire) below). Without it, a capable model will often still find the right file, but by searching the filesystem rather than by routing from the index — which is slower and defeats the point.
+
+There is no fallback search in the core design. You can run one alongside it, but keep it separate rather than coupling it to the index.
+
+## Making retrieval actually fire
+
+Stock Hermes does **not** attach routing instructions to the memory block. It renders your `MEMORY.md` into the system prompt under a `MEMORY (your personal notes)` header and nothing more. The index arrives as a bare list of lines with no indication that they are pointers.
+
+A capable model will often work it out anyway — but in testing it did so by *searching the filesystem* for a matching filename rather than by routing from the index. That is the failure mode worth understanding: the answer came out right, but the mechanism was brute force, and it would not scale to a few hundred topic files.
+
+The fix is to state the contract where the model will always see it. Two options:
+
+1. **Skill file (recommended).** The [`skill/`](skill/) directory ships the routing rule in its retrieval section. Install it as described in [Install](#install) and the instruction loads with the skill.
+2. **Personality / system prompt.** If you don't load the skill, put the rule into your personality file or `config.yaml` so it is present in every session:
+
+   > Your memory index is a routing table, not a summary. When the conversation touches several keywords from one line — or an obviously related term the line doesn't spell out — read that file in full before answering. Prefer the line whose keyword set matches best overall, not the first line sharing a single word.
+
+Verify it works by asking a question that deliberately shares **no** literal keyword with the index and then checking the session transcript for a `read_file` on the expected topic file. If you see `search_files` instead, the routing instruction isn't reaching the model.
 
 ## Governance: the memory-shaper plugin
 
@@ -83,7 +102,7 @@ A self-editing memory is both the feature and the failure mode. Left unguarded, 
 | Format drift | Lines are validated on write: Unicode `→` only, bare `*.md` targets, 5–20 lowercase keywords, no prose. Rejections carry an actionable fix message instead of silently passing |
 | Path tricks | Index targets must be bare filenames — no paths, no `../` escapes |
 | Write-vector bypass | `write_file`, `patch`, shell redirects, `tee`, `sed -i`, and command substitution all bypass the `memory` tool's guarantees, so **all** non-`memory` tools are blocked when their arguments reference the index |
-| Audit lockout | Read-only commands (`cat`, `grep`, `wc`, `diff`, `stat`, …) pass through, so the agent can always inspect the file it maintains |
+| Audit lockout | Read-only tools and commands pass through, so the agent can always inspect the file it maintains. This includes `read_file`, which takes the same `path` argument as `write_file` — blocking on a path match alone would refuse reads of the index (a bug fixed in 1.4.2; the test suite now guards it) |
 | Orphan rot | The validator flags topic files with no index line (unreachable content) and index lines pointing at missing files, on every candidate write |
 
 See [`examples/`](examples/) for a runnable demo index and a worked retrieval walkthrough, and [`scripts/`](scripts/) for the validator and hook test suite.

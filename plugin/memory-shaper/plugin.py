@@ -196,7 +196,7 @@ def _rewrite_approved() -> bool:
 
 
 
-def _targets_memory_md(args: dict) -> bool:
+def _targets_memory_md(args: dict, tool_name: str = "") -> bool:
     """Return True if the tool args actually WRITE to MEMORY.md.
 
     Read-only operations must never be blocked, even when they mention the path.
@@ -204,13 +204,28 @@ def _targets_memory_md(args: dict) -> bool:
     'python' as a write and then blocked it merely for mentioning MEMORY.md —
     which refused plain `wc -l MEMORY.md`, `grep § MEMORY.md`, and even
     unrelated `python3 <script>` calls (reported as 'Path detected: (unknown)').
+
+    `tool_name` disambiguates tools that carry a `path` argument but do not
+    write it. `read_file` takes the same `path` field as `write_file`, so a
+    path-only check blocked the agent from reading the very index it is
+    responsible for maintaining (the audit-lockout class). Only tools that
+    actually mutate the path may be refused on a path match.
     """
     if not isinstance(args, dict):
         return False
 
+    # Tools whose `path` argument is a WRITE target. read_file is deliberately
+    # absent: reading MEMORY.md is always allowed.
+    _PATH_WRITING_TOOLS = {"write_file", "patch", "edit", "create_file"}
+    if tool_name and tool_name not in _PATH_WRITING_TOOLS:
+        # Not a path-writing tool: the `path` field cannot be a write vector.
+        pass_writes = False
+    else:
+        pass_writes = True
+
     # write_file / patch / edit: explicit path field — the ONLY reliable signal.
     p = args.get("path") or args.get("file_path") or ""
-    if p and _normalize_path(p) == MEMORY_MD_RESOLVED:
+    if pass_writes and p and _normalize_path(p) == MEMORY_MD_RESOLVED:
         return True
 
     cmd = (args.get("command") or "").strip()
@@ -465,7 +480,7 @@ def handle_pre_tool_call(
         return {}
 
     # All other tools: refuse if they target MEMORY.md.
-    if _targets_memory_md(args):
+    if _targets_memory_md(args, tool_name):
         _logger.warning(
             "[memory-shaper] BLOCKED %s targeting MEMORY.md (args keys: %s)",
             tool_name, list(args.keys()) if isinstance(args, dict) else []

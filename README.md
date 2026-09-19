@@ -7,13 +7,13 @@ A production-tested pattern for personal agent memory — no vector database, no
 ```markdown
 # Memory Index — keyword,keyword,keyword → file.md
 !!how,write,memory,format,keyword,entry,template → how-to-write-memories.md
-!project,deploy,release,pipeline,staging,rollback → project-deploys.md
-camera,photography,dslr,lens,aperture,exposure,tripod → camera-gear.md
-travel,visa,flight,hotel,itinerary,passport → travel-planning.md
-finances,budget,taxes,deduction,filing,deadline → money-admin.md
+!project,deploy,release,pipeline,staging,rollback → deploy-pipeline.md
+java,springframework,jvm,garbagecollection,heap,profiling,jmx → java-performance.md
+javascript,typescript,npm,bundler,webpack,vite,node,lint → js-toolchain.md
+database,postgres,index,query,explain,migration,vacuum → postgres-notes.md
 ```
 
-Every line is a pointer. `camera-gear.md` can be as long and detailed as it needs to be — it costs nothing until the conversation actually touches photography.
+Every line is a pointer. `java-performance.md` can be as long and detailed as it needs to be — it costs nothing until the conversation actually touches JVM internals.
 
 ---
 
@@ -63,11 +63,11 @@ This is where the approach differs from both naive keyword lookup and embedding 
 
 **1. The whole keyword set is scored, not individual keywords.**
 
-The conversation says *"the golf car battery is dead."* Per-keyword matching hits `golf` in the golf line and `car` in the car line and ranks them equally — the agent reads the wrong file. Set-level matching sees that the car line's full set (`car,maintenance,transmission,oil,tires`) is denser and more specific here than the golf line's (`golf,clubs,swing,handicap`), and routes correctly. That entire collision class disappears.
+The conversation says *"the java script for the build is broken."* Per-keyword matching hits `java` in the JVM line and `javascript` in the toolchain line and ranks them equally — the agent reads the wrong file. Set-level matching sees that the toolchain line's full set (`javascript,typescript,npm,bundler,vite,node,lint`) is denser and more specific here than the JVM line's (`java,jvm,garbagecollection,heap,profiling,jmx`), and routes correctly. That entire collision class disappears.
 
 **2. The model does the semantic matching, over a literal index.**
 
-*"I'm thinking of upgrading my DSLR"* contains no `dslr` keyword anywhere in the index. The model — already in the loop — makes the jump DSLR → `camera,photography,lens` and reads the camera file before answering. Fuzziness comes from the model, not an embedding engine: no vector store, no ANN index, no similarity threshold to tune, no API cost, nothing to keep in sync.
+*"My laptop's fans won't stop spinning at idle"* contains no `fan` keyword anywhere in the index. The model — already in the loop — makes the jump fans → `thermal` and reads the hardware file before answering. Fuzziness comes from the model, not an embedding engine: no vector store, no ANN index, no similarity threshold to tune, no API cost, nothing to keep in sync.
 
 The index block ends with routing instructions to that effect: *treat these lines as a routing table; prefer the line whose keyword set matches best overall; follow related terms that aren't spelled out in the line.*
 
@@ -155,12 +155,15 @@ skill/                       the dynamic-memory skill (write protocol + format r
 scripts/verify_index.py      index validator (arrows, targets, keyword bounds, orphans)
 scripts/test_hook_cases.py   hook test suite: reads pass, every write vector blocks
 examples/memories/           synthetic demo index + topic files (fully fictional)
-examples/demo-retrieval.md   worked demo: set matching, and DSLR → camera association
+examples/demo-retrieval.md   worked demo: set matching and associative jumps
 docs/architecture.md         architecture deep-dive (code-level trace)
 NOTICE                       attribution requirements for redistributors
 ```
 
-The examples are **synthetic** — invented hobbies and admin topics, chosen to show the golf+car / golf+clubs collision and the DSLR → camera jump. No real memory data is published here.
+The examples are **synthetic** — invented topics (JVM tuning, a frontend build
+chain, home network admin) chosen to demonstrate the two hard cases: a literal
+naming collision (`java` vs `javascript`), and a conversation term that appears
+in no index line at all (fans → thermal). No real memory data is published here.
 
 ## Limitations
 

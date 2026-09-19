@@ -23,8 +23,8 @@ The index is injected verbatim into the system prompt at session start as a froz
 
 When the conversation touches several keywords from one line — or an obviously related term not spelled out in the line — read that file in full before answering. Prefer the line whose keyword **set** matches best overall, not the first line sharing a single word:
 
-- **Set-level, not per-keyword.** Score the whole comma-separated set per line. This resolves collisions like golf+**car** (the vehicle) versus golf+**clubs** (the sport): the car line carries maintenance and service keywords, so "the golf car battery is dead" routes to the car file even though both lines contain the token `car`.
-- **Model-side fuzziness.** The model makes associative jumps over the literal index — "DSLR" routes to a line carrying `camera,lens` — so retrieval stays plain text with no embedding engine and no similarity threshold.
+- **Set-level, not per-keyword.** Score the whole comma-separated set per line. This resolves collisions like `java` (the JVM) versus `javascript` (the build toolchain): the toolchain line carries `npm`, `bundler`, and `node`, so "the java script for the build is broken" routes to the toolchain file even though both lines begin with the same letters.
+- **Model-side fuzziness.** The model makes associative jumps over the literal index — "the fans won't stop spinning" routes to a line carrying `thermal` — so retrieval stays plain text with no embedding engine and no similarity threshold.
 
 ## Write protocol (memory tool only)
 

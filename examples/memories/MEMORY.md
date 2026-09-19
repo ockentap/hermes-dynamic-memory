@@ -10,11 +10,11 @@
 # Qualifier prefixes (user-assigned only):
 #   !! critical — never edit without explicit user approval
 #   !  pinned   — never prune
-smart,home,zigbee,mqtt,homeassistant,light,bulb,scene,automations → smart-home.md
-camera,photography,dslr,lens,aperture,exposure,tripod,raw,editing → camera-gear.md
-travel,visa,schengen,flight,hotel,itinerary,passport,border,customs → travel-planning.md
-cooking,recipes,bread,sourdough,fermentation,kitchen,starter,baking → cooking-notes.md
-finances,budget,taxes,deductions,filing,deadline,invoice,vat → money-admin.md
-golf,clubs,swing,handicap,course,putting,driver,iron → golf-notes.md
-car,maintenance,transmission,oil,tires,garage,service,brakes → car-log.md
-running,training,marathon,pace,shoes,injury,recovery,plan → running-log.md
+java,springframework,jvm,garbagecollection,heap,profiling,jmx → java-performance.md
+javascript,typescript,npm,bundler,webpack,vite,node,lint → js-toolchain.md
+database,postgres,index,query,explain,migration,vacuum → postgres-notes.md
+python,venv,packaging,poetry,ruff,pytest,typing → python-env.md
+deploy,release,pipeline,staging,rollback,canary,ci → deploy-pipeline.md
+git,branch,rebase,worktree,conflict,cherrypick,stash → git-workflow.md
+laptop,thinkpad,firmware,battery,thermal,fankey,bios → laptop-hardware.md
+router,firmware,openwrt,modem,subnet,dns,dhcp → home-network.md

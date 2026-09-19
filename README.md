@@ -187,6 +187,46 @@ The pattern class exists and pieces of it are documented elsewhere. Honest posit
 
 If you know of prior art we've missed, please open an issue.
 
+## Compatibility with Hermes' built-in memory
+
+This project sits on top of Hermes' native memory file, which means **Hermes updates can break it.** Everything below was verified against **Hermes v0.21.3** and is the reason this section exists. Read it before upgrading.
+
+**Pin your Hermes version, and re-run the checks after any upgrade.**
+
+### What the native layer does that this project has to work around
+
+| Behaviour | Where | Consequence |
+|---|---|---|
+| `ENTRY_DELIMITER = "\n§\n"` is hardcoded | `tools/memory_tool_store.py:23` | Every write re-inserts a bare `§` line between entries. It is not configurable and **no plugin can remove it** — the join happens after hooks return. |
+| The resident block ships with **no routing instruction** | `_render_block()` | Hermes emits a header, a usage percentage, and the entries. Nothing tells the model the lines are pointers. Without an explicit routing rule (this skill, or your personality file) the model may find files by searching the filesystem instead — correct answers, wrong mechanism, no scaling. |
+| The cap is **2,200 chars** by default | `cli-config.yaml.example:942` | Roughly 800 tokens. Reached fast; the tool then *refuses* new entries and tells you to consolidate. Content is lost or compressed, silently, as a normal part of use. |
+| `read_file` and `write_file` share the `path` argument | tool schemas | Any plugin enforcing a write-lock by path alone will also block reads, locking the agent out of auditing its own index. Fixed in memory-shaper 1.4.2; relevant if you write your own plugin. |
+| Entries are joined with `§` **in the prompt too** | `_render_block()` | The model sees entries separated by a `§` token while the file on disk shows a line break. Two views of one file disagreeing is a standing invitation to confusion. |
+
+### What this means when Hermes upgrades
+
+Any of the five could change without notice. In particular:
+
+- If `ENTRY_DELIMITER` changes, the `§` lines stop appearing — harmless, the validator already treats them as optional.
+- If Hermes **adds** routing instructions to the memory block, part of the skill's job becomes redundant. Harmless.
+- If Hermes adds a **detail tier of its own**, this project's reason to exist shrinks. That would be a good outcome, not a bad one.
+- If the **memory tool's file format changes**, the write-lock and validator may start rejecting valid content. This is the failure mode to watch, and the one that would need a fix.
+
+### After upgrading Hermes, run these
+
+```bash
+hermes plugins doctor memory-shaper                 # manifest + hook still register
+python3 scripts/test_hook_cases.py                  # hook logic unchanged
+python3 scripts/verify_index.py ~/.hermes/memories/MEMORY.md
+python3 scripts/test_retrieval.py --last --expect <a-topic-file>.md
+```
+
+If `verify_index.py` starts reporting failures on an index it previously passed, check the `§` handling first — the separator count line in its output tells you which delimiter model is currently in force.
+
+### If a future Hermes makes this redundant
+
+We would call that success. The two things worth borrowing from this project regardless of its own fate are: **an always-resident keyword index with verbose detail kept out of the prompt**, and **enforcement at the hook layer rather than in documentation**. Both are compatible with any memory backend.
+
 ## Repo layout
 
 ```
@@ -198,8 +238,18 @@ scripts/test_retrieval.py    did retrieval route from the index, or brute-force 
 examples/memories/           synthetic demo index + topic files (fully fictional)
 examples/demo-retrieval.md   worked demo: set matching and associative jumps
 docs/architecture.md         architecture deep-dive (code-level trace)
+docs/benchmark.md            native vs dynamic: resident cost + retrieval, with limitations
+docs/benchmark-raw-results.json  raw transcripts behind the benchmark
 NOTICE                       attribution requirements for redistributors
 ```
+
+**Note on the benchmark:** [`docs/benchmark.md`](docs/benchmark.md) reports a
+**mixed** result and is written to be read sceptically. The resident-cost and
+coverage claims hold (2.06x smaller memory block, 12/12 topics vs 11/12, plus a
+detail tier stock memory lacks). Claims about *better answers* do not hold on the
+corpus tested — the model answered several questions from pretrained knowledge
+without consulting memory at all. The document lists what a credible follow-up
+would need.
 
 The examples are **synthetic** — invented topics (JVM tuning, a frontend build
 chain, home network admin) chosen to demonstrate the two hard cases: a literal

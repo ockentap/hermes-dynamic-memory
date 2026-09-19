@@ -1,6 +1,6 @@
 # Complexity benchmark: do verbose, structured memories survive?
 
-Run: 2026-09-19 · Hermes v0.21.3 · `deepseek-flash` · clean containers, one fresh session per probe
+Run: 2026-09-19 · Hermes v0.21.3 · **model `deepseek-chat` via provider `deepseek`** · clean containers, one fresh session per probe
 
 ## Why this test exists
 

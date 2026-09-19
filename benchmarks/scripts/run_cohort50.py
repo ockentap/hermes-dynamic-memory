@@ -29,8 +29,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import (adjudicate, ask, assert_clean, clean_container,
-                     install_dynamic, install_native, score, strip_meta)
+from harness import (adjudicate, ask, assert_clean, benchmark_conditions,
+                     clean_container, install_dynamic, install_native, load_results,
+                     score, strip_meta)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.join(HERE, "..", "fixtures", "cohort50.json")
@@ -138,7 +139,14 @@ def main() -> int:
         # from the mechanical scores: adjudication was performed by hand across
         # three failed graders, and recomputing from the regex alone reproduces
         # the mechanical (wrong) number instead of the published one.
-        rows = json.load(open(os.path.join(args.out, "answers-adjudicated.json")))
+        path = os.path.join(args.out, "answers-adjudicated.json")
+        cond = benchmark_conditions(path)
+        if cond:
+            print(f"run conditions: model={cond.get('model')} "
+                  f"provider={cond.get('provider')} "
+                  f"hermes={cond.get('hermes_version')} "
+                  f"date={cond.get('date')}")
+        rows = load_results(path)
         for r in rows:
             r.setdefault("id", r.get("fact"))
         tally = {

@@ -1,6 +1,6 @@
 # Cohort benchmark: 50 memories, 50 questions (clean run)
 
-Run: 2026-09-19 · Hermes v0.21.3 · `deepseek-flash` · one fresh session per question
+Run: 2026-09-19 · Hermes v0.21.3 · **model `deepseek-chat` via provider `deepseek`** · one fresh session per question
 
 **This run supersedes two earlier attempts, both of which were invalid.** The
 failures are documented below because the corrected result only means something
@@ -103,7 +103,7 @@ that came later in the feed are gutted.
 ## Limitations
 
 1. **n=1 per question.** No repeats, no variance.
-2. **Single model.** `deepseek-flash` shows a strong bias toward local filesystem
+2. **Single model.** `deepseek-chat` shows a strong bias toward local filesystem
    evidence over injected memory, which likely *inflates* dynamic's failure count
    — `pref_shell` is the clearest case.
 3. **Adjudication is human judgement.** The counts depend on my reading of each

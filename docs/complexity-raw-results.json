@@ -1,302 +1,313 @@
-[
- {
-  "fact": "c1_expand_contract",
-  "probe": "headline",
-  "question": "what is our database migration policy?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "From my notes \u2014 migration policy agreed 2026-07-11:\n\nCore rule: every schema change must be backward-compatible for exactly one release (expand/contract). The migration runs BEFORE the new application code deploys, never after.\n\nForbidden without the database lead's written approval (two exceptions, both requiring it):\n- Dropping a column in the same release as the deploy that stops writing it. Minimum one-release gap.\n- Adding a NOT NULL column with no default. Not allowed at all \u2014 add with a default, then backfill.\n\nVerification: the migration must pass against a production snapshot taken within the last 7 days, not a synthetic schema.\n\nRollback: migrations are forward-only. There are no down-migrations \u2014 a bad migration is fixed by a new migration, which is exactly why the one-release gap exists.\n\nCaveat: that's what's in my stored notes, which could be stale if the policy changed since July. If you want, I can check whether there's a current doc in the repo or vault to confirm.\n",
-  "dynamic_answer": "From the database migration policy note (/root/.hermes/memories/cx_c1_expand_contract.md), agreed 2026-07-11:\n\nCore rule \u2014 expand/contract\nEvery schema change must be backward-compatible for exactly one release, and the migration runs BEFORE the new application code deploys, never after.\n\nForbidden / exception cases (both need the database lead's written approval)\n- Dropping a column in the same release as the deploy that stops writing it \u2014 minimum one release gap required.\n- Adding a NOT NULL column without a default \u2014 forbidden entirely; use a default, then backfill.\n\nVerification\nThe migration must pass against a snapshot of production taken within the last 7 days, not against a synthetic schema.\n\nRollback\nMigrations are forward-only \u2014 there are no down-migrations. A bad migration is fixed by a new migration; that's why the one-release gap exists.\n\nRelated notes I also hold: deploy ordering (cx_c3), incident severity (cx_c2), access control (cx_c4), retention matrix (cx_c5), on-call escalation (cx_c6). Say the word if you want any of them.\n"
+{
+ "_benchmark_conditions": {
+  "model": "deepseek-chat",
+  "provider": "deepseek",
+  "hermes_version": "0.21.3",
+  "native_cap_chars": 2200,
+  "date": "2026-09-19",
+  "sessions": "one fresh session per question; session state wiped before install",
+  "note": "Model is part of the result: deepseek-chat prefers local filesystem evidence over injected memory, which inflates dynamic's failure count. See benchmarks/README.md."
  },
- {
-  "fact": "c1_expand_contract",
-  "probe": "detail: the one-release gap",
-  "question": "how long before we can drop a column after the code stops using it?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "One full release, minimum. The deploy that stops writing the column has to ship first; the drop cannot land in that same release \u2014 it goes in the next one. That gap is what makes the change safe, since migrations are forward-only (a bad migration gets fixed by a new migration, not a down-migration). Dropping earlier requires the database lead's written approval.\n",
-  "dynamic_answer": "Minimum one full release of separation \u2014 not a time window, a release boundary.\n\nThe policy (agreed 2026-07-11):\n\n- Dropping a column in the same release as the deploy that stops writing it is forbidden. The drop has to wait until at least the next release, and the cleanup migration must be a separate, later release from the expand migration \u2014 never in the same deploy.\n- Dropping is also gated on rollout completion: cleanup runs only after the new code is at 100% traffic, i.e. after the canary holds (20 min at under 0.5% errors and p99 under 400ms), the 50% hold, then full promote. So a long canary/rollback cycle extends the clock in practice.\n- It's a written-approval exception, not a routine change: droppping a column requires the database lead's written approval.\n- Migrations are forward-only (no down-migrations), which is the underlying reason for the gap \u2014 and if the canary fails, you roll back the code, not the migration.\n\nTwo related constraints worth keeping in view: the expand migration must run before the new code deploys (never after) and must verify against a production snapshot taken within the last 7 days, not a synthetic schema; and NOT NULL columns without a default are banned outright \u2014 add with a default, then backfill.\n"
- },
- {
-  "fact": "c1_expand_contract",
-  "probe": "detail: NOT NULL requires default",
-  "question": "what's the rule about adding a NOT NULL column?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "From the database migration policy (agreed 2026-07-11, expand/contract):\n\nAdding a NOT NULL column without a default is forbidden entirely \u2014 no exception process for it (unlike column drops, which need a one-release gap and the DB lead's written approval). The required approach is to add the column with a default, then backfill.\n\nThe broader rules it sits inside: the migration runs before the new application code deploys, and it must be verified against a production snapshot taken within the last 7 days. Migrations are forward-only \u2014 no down-migrations, so a bad one is fixed by a new migration.\n",
-  "dynamic_answer": "Forbidden entirely \u2014 \"Adding a NOT NULL column without a default is forbidden entirely; use a default then backfill.\"\n\nThat's from the migration policy (cx_c1_expand_contract), agreed 2026-07-11. Two details that matter around it:\n\n- The whole scheme is expand/contract: every schema change must be backward-compatible for exactly one release, and the migration runs before the new app code deploys, never after.\n- It's listed as an exception, so it would need the database lead's written approval \u2014 but even then the rule reads as a flat prohibition, so the path is: add the column with a default, then backfill.\n\nRelated constraints in the same policy: dropping a column can't happen in the same release as the deploy that stops writing it (one release gap minimum), migrations must be verified against a production snapshot taken within 7 days (not a synthetic schema), and migrations are forward-only \u2014 no down-migrations, fix a bad one with a new migration.\n"
- },
- {
-  "fact": "c1_expand_contract",
-  "probe": "detail: prod snapshot within 7 days",
-  "question": "what does the migration have to be tested against?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "A snapshot of production taken within the last 7 days \u2014 not a synthetic schema.\n\nThat's the verification requirement in the expand/contract migration policy (agreed 2026-07-11). Related rules from the same policy, in case they're what you're actually after: the migration runs before the new app code deploys, never after; migrations are forward-only (no down-migrations, a bad one is fixed by a new one); dropping a column requires a minimum one-release gap after writes stop; and a NOT NULL column without a default is forbidden entirely.\n",
-  "dynamic_answer": "A snapshot of production taken within the last 7 days \u2014 explicitly not a synthetic/hand-built schema.\n\nFrom the migration policy (cx_c1_expand_contract.md): \"the migration must pass against a snapshot of production taken within the last 7 days, not against a synthetic schema.\"\n\nTwo related constraints that shape that test: the migration runs before the new code deploys (never after), and it must be backward-compatible for exactly one release \u2014 so the snapshot test is what proves it against real data shapes rather than an idealized one.\n"
- },
- {
-  "fact": "c1_expand_contract",
-  "probe": "detail: forward-only, no downs",
-  "question": "are there down-migrations?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "No. The policy is forward-only: no down-migrations. A bad migration gets fixed by a new migration \u2014 which is exactly why the one-release gap before dropping a column exists.\n",
-  "dynamic_answer": "No. Per the migration policy in /root/.hermes/memories/cx_c1_expand_contract.md (agreed 2026-07-11):\n\n\"Migrations are forward-only. There are no down-migrations; a bad migration is fixed by a new migration, which is why the one-release gap exists.\"\n\nRelated rules from the same file:\n- Dropping a column is forbidden in the same release as the deploy that stops writing it \u2014 minimum one release gap (needs the database lead's written approval).\n- Adding a NOT NULL column without a default is forbidden outright \u2014 use a default, then backfill.\n- Verification: the migration must pass against a production snapshot taken within the last 7 days, not a synthetic schema.\n"
- },
- {
-  "fact": "c1_expand_contract",
-  "probe": "detail: the named approver",
-  "question": "who has to approve a migration exception?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "The database lead \u2014 written approval, and only the two carve-outs need it: dropping a column (requires a one-release gap after the deploy that stops writing it) and adding a NOT NULL column with no default (forbidden outright, even with approval \u2014 default + backfill instead).\n",
-  "dynamic_answer": "The database lead \u2014 in writing.\n\nThe only exception that approval actually unlocks is the one-release gap for dropping a column (dropping it in the same release as the deploy that stops writing it). The other bullet \u2014 adding a NOT NULL column without a default \u2014 is forbidden outright, not approvable, so no signature gets you there; use a default then backfill.\n\nSource: /root/.hermes/memories/cx_c1_expand_contract.md (migration policy, agreed 2026-07-11). The deploy-ordering note (cx_c3) is consistent: cleanup/column removal is always a separate later release, never the same deploy as the expand migration.\n"
- },
- {
-  "fact": "c2_incident_severity",
-  "probe": "headline",
-  "question": "how do we define a sev-1?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "From what's on record (severity definitions revised 2026-08-20):\n\nSev-1 \u2014 customer-visible data loss, corruption, or complete outage of a revenue-critical path.\n\nResponse obligations:\n- Page immediately, 24/7.\n- Incident commander assigned within 10 minutes.\n- Executive notification within 30 minutes.\n- Written postmortem within 5 business days; blameless, and reviewed in the weekly engineering meeting.\n\nThe distinguishing test versus Sev-2 is scope and impact type: Sev-1 requires customer-visible data loss/corruption or a total outage of a revenue-critical path, while Sev-2 covers degradation affecting only a subset of customers or a non-critical path (business-hours paging, no executive notification).\n\nNote: this comes from my stored notes, not a doc in the repo \u2014 I searched and found no severity policy file on disk, only the memory entry. If there's a canonical version somewhere (Confluence, runbook, repo), point me at it and I'll reconcile.\n",
-  "dynamic_answer": "From our incident severity doc (revised 2026-08-20):\n\nSev-1 = customer-visible data loss or corruption, OR complete outage of a revenue-critical path.\n\nResponse requirements:\n- Page immediately, 24/7\n- Incident commander engaged within 10 minutes\n- Executive notification within 30 minutes\n- Blameless written postmortem within 5 business days, reviewed at the weekly engineering meeting\n\nContrast: sev-2 is degradation hitting a subset of customers or a non-critical path (business-hours paging, commander but no exec notification); sev-3 is internal-only, ticket no page.\n\nOne thing worth flagging: partial degradation of a revenue-critical path is not spelled out \u2014 the definition reads as \"complete outage,\" so a 30% failure rate on checkout lands ambiguously between sev-1 and sev-2. The doc is at /root/.hermes/memories/cx_c2_incident_severity.md.\n"
- },
- {
-  "fact": "c2_incident_severity",
-  "probe": "detail: 10-minute commander",
-  "question": "how fast does a sev-1 need an incident commander?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "10 minutes. Sev-2 also requires a commander, but with no clock attached.\n",
-  "dynamic_answer": "Sev-1 requires an incident commander on duty within 10 minutes of the page (page the response immediately, 24/7). Executive notification is due within 30 minutes. Source: incident severity definitions (revised 2026-08-20), /root/.hermes/memories/cx_c2_incident_severity.md.\n\nRelated: the on-call escalation ladder pages secondary at 5 minutes, EM at 15, CTO at 30 \u2014 and at 30 minutes the incident is auto-declared sev-1 regardless of initial appearance.\n"
- },
- {
-  "fact": "c2_incident_severity",
-  "probe": "detail: exec notification in 30 min",
-  "question": "who gets notified in a sev-1 and how fast?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "Sev-1 (customer-visible data loss, corruption, or total outage of a revenue-critical path):\n\n- Page immediately, 24/7 \u2014 no business-hours restriction.\n- Incident commander in place within 10 minutes.\n- Executive notification within 30 minutes.\n- Written postmortem within 5 business days, blameless, reviewed in the weekly engineering meeting.\n",
-  "dynamic_answer": "From ~/.hermes/memories/cx_c2_incident_severity.md and cx_c6_oncall_escalation.md:\n\nWho and how fast, on a sev-1:\n- Page immediately, 24/7 \u2014 primary on-call first, expected to respond within 5 minutes.\n- Incident commander in place within 10 minutes.\n- Executives notified within 30 minutes.\n\nThe escalation ladder (runs on unacknowledged pages, and its top rung forces a sev-1):\n- 5 min no ack \u2192 secondary on-call paged.\n- 15 min \u2192 engineering manager paged.\n- 30 min \u2192 CTO paged, and the incident is auto-declared sev-1 no matter how it was originally classified.\n\nTwo things worth noting that the policy doesn't spell out:\n- \"Executive notification within 30 minutes\" doesn't name which execs (only the CTO appears explicitly, in the escalation ladder).\n- Break-glass use of the `ops-emergency` account separately pages the on-call security engineer (cx_c4_access_control.md), which is a sev-1-adjacent page not covered by the severity table.\n\nPostmortem side, since it drives follow-up: sev-1s get a blameless written postmortem within 5 business days, reviewed at the weekly engineering meeting; and after any sev-1 running past 4 hours, responders get the next business day off automatically. Sources dated 2026-08-20.\n"
- },
- {
-  "fact": "c2_incident_severity",
-  "probe": "detail: 5 business days for sev-1/2",
-  "question": "when are postmortems required?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "Postmortems are required for Sev-1 and Sev-2 incidents \u2014 written within 5 business days of resolution.\n\nDetails per the severity definitions:\n\n- Sev-1: written postmortem within 5 business days; blameless format; reviewed in the weekly engineering meeting.\n- Sev-2: written postmortem within 5 business days; no executive notification requirement, and not part of the weekly review.\n- Sev-3: no postmortem. But three Sev-3s in a single month triggers escalation to a Sev-2 review \u2014 that's the case people tend to miss.\n\nIf you were asking about a specific incident and want me to classify it, tell me what happened and I'll apply the definitions.\n",
-  "dynamic_answer": "Postmortems are required for **sev-1 and sev-2** \u2014 written within 5 business days. Sev-1 postmortems are blameless and get reviewed in the weekly engineering meeting.\n\nSev-3 gets no postmortem, with one exception most people miss: **three sev-3s in a month escalates to a sev-2 review**, which then requires the written postmortem.\n\nRelated, since the severity can be set for you: an incident unacknowledged for 30 minutes (escalation reaching the CTO) is automatically declared sev-1 regardless of how it first looked \u2014 so it lands in postmortem territory by that rule alone.\n"
- },
- {
-  "fact": "c2_incident_severity",
-  "probe": "detail: 3 sev-3s -> sev-2 review",
-  "question": "what happens if we have lots of sev-3s?",
-  "native_stored": true,
-  "native_recalled": true,
-  "dynamic_recalled": true,
-  "native_answer": "Sev-3s get no postmortem individually \u2014 they're ticket-only, no page. But three sev-3s within a month counts as a recurring pattern and gets escalated to a sev-2 review. At that point it inherits the sev-2 treatment: an incident commander (no executive notification), and a written postmortem within 5 business days as part of that review.\n\nThat escalation rule is the one people forget \u2014 the threshold is three per month, not per incident.\n",
-  "dynamic_answer": "The rule you're probably looking for is in the severity policy (memories/cx_c2_incident_severity.md):\n\nThree sev-3s in a month trigger a sev-2 review \u2014 that's the escalation people forget.\n\nOtherwise, lots of sev-3s on their own are just volume: each one is internal-only, ticket with no page, and gets no postmortem. The consequence is indirect \u2014 a cluster of them is treated as a signal that something is generating repeat internal pain, and it gets pulled up to sev-2 review (which does carry a written postmortem within 5 business days).\n\nRelated, from the on-call policy: if a page goes unacknowledged for 30 minutes it's auto-declared sev-1 regardless of how it looked initially, so sev-3-heavy periods don't buy you slack if pages are being missed.\n"
- },
- {
-  "fact": "c3_deploy_ordering",
-  "probe": "headline",
-  "question": "what's the deploy order?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "Migration first, then the new application code. The schema change has to land (and pass against a production snapshot taken within the last 7 days) before the deploy that depends on it goes out \u2014 never the other way around.\n",
-  "dynamic_answer": "Deploy order (from cx_c3_deploy_ordering.md):\n\n1. Run migrations first \u2014 backward-compatible only.\n2. Deploy new code to canary: 1 instance, 5% of traffic.\n3. Hold 20 min. Promote only if BOTH error rate < 0.5% AND p99 latency < 400ms.\n4. Promote to 50%, hold 10 min, same thresholds.\n5. Promote to 100%.\n6. Only then run the cleanup migration (drops old columns/tables).\n\nTwo constraints that get missed:\n\n- Step 6 must never ship in the same release as step 1. Cleanup is always a separate, later release (one-release gap, per cx_c1_expand_contract.md).\n- If the canary fails at step 3: roll back the code, NOT the migration. The migration is already backward-compatible, and rolling it back breaks old code still running elsewhere. Migrations are forward-only \u2014 fix a bad one with a new migration, never a down-migration.\n"
- },
- {
-  "fact": "c3_deploy_ordering",
-  "probe": "detail: 0.5% errors and 400ms p99",
-  "question": "what are the canary thresholds?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "No canary thresholds are recorded anywhere I can see \u2014 not in my persistent memory, not in your notes.\n\nWhat does exist is one qualitative line in /root/hdm/examples/memories/deploy-pipeline.md:\n\n  \"Canary at low traffic share, watch error rate and p95 latency, then widen.\n   Time-based promotion is a proxy for confidence, not a measurement of it.\"\n\nSo: canary at a low traffic share, gate promotion on error rate and p95 latency, no time-based promotion. No numbers \u2014 no percentage share, no error-rate ceiling, no p95 budget, no bake duration.\n\nMy memory holds only the migration policy (one-release expand/contract) and the incident severity definitions. Nothing about canary gates.\n\nIf you have the thresholds in mind, tell me and I'll record them \u2014 an operational document like this wants a topic file (a canary-gates.md with an index line) rather than a bare memory entry. Or point me at where they should come from (a CI config, a deploy runbook) and I'll pull them.\n",
-  "dynamic_answer": "Canary gate (from your deploy-ordering notes):\n\n- Canary = 1 instance, 5% of traffic, held 20 minutes. Promote only if BOTH:\n  - error rate < 0.5%\n  - p99 latency < 400ms\n- Then 50% for 10 minutes with the same two thresholds, then 100%.\n\nRelated constraints in the same file: run migrations before canary (backward-compatible), roll back code but not the migration on canary failure, and the cleanup migration that drops old columns/tables must be a separate later release \u2014 never in the same deploy as the expand migration.\n"
- },
- {
-  "fact": "c3_deploy_ordering",
-  "probe": "detail: 20 min then 10 min",
-  "question": "how long do we hold the canary?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "Nothing in my notes gives a hold time \u2014 the only canary guidance I have is in /root/hdm/examples/memories/deploy-pipeline.md, and it's deliberately metric-gated rather than time-gated:\n\n  \"Canary at low traffic share, watch error rate and p95 latency, then widen.\n   Time-based promotion is a proxy for confidence, not a measurement of it.\"\n\nSo the documented rule is: hold until error rate and p95 latency look right at the current traffic share, then widen \u2014 there's no fixed window (no \"N hours\" or \"one release\") recorded anywhere I can see. I searched /root for \"canary\" and the only two hits are that file and its index line in MEMORY.md.\n\nIf your team does have a number (e.g. a fixed soak window before widening), it isn't in my notes \u2014 tell me and I'll record it.\n",
-  "dynamic_answer": "20 minutes.\n\nPer cx_c3_deploy_ordering.md: canary goes out at 1 instance / 5% of traffic, hold 20 minutes, and it's promoted only if both the error rate stays under 0.5% and p99 latency under 400ms. Then 50% for another 10 minutes at the same thresholds, then 100%. Cleanup migrations (dropping old columns/tables) must be a separate, later release \u2014 never the same deploy as the migration step.\n"
- },
- {
-  "fact": "c3_deploy_ordering",
-  "probe": "detail: roll back code, NOT migration",
-  "question": "if the canary fails, do we roll back the migration too?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "Short answer: no. The canary rollback is an application rollback, and it doesn't touch the schema.\n\nThe chain, from your own notes:\n\n- A rollback is redeploying the previous artifact \u2014 one step. \"If rollback requires a forward fix, it isn't a rollback.\" (deploy-pipeline.md)\n- The migration already ran before the new code started serving any traffic, so by the time the canary is failing there is nothing pending to cancel. It's applied.\n- Leaving it applied is safe by construction: the migration \"must be compatible with the old code still running during the window.\" That's the expand half. You roll the app back, the expand stays, and the next release resumes from there.\n- Rolling the schema back isn't even on the table under the agreed policy: migrations are forward-only, there are no down-migrations, and a bad migration is fixed by a new one. That's precisely why dropping a column in the same release as the deploy that stops writing it is forbidden \u2014 a canary failure at that point would leave you with no safe direction to move.\n\nSo: revert the artifact, keep the migration, ship a new migration if the schema itself is the problem.\n\nTwo things worth flagging, since you're asking in the context of \"canary fails\":\n\n1. This only holds if the release shipped the expand half. If someone bundled the contract step (a drop, or a NOT NULL column with no default), an app rollback breaks the old code. Both are banned by the agreed policy \u2014 the drop needs a one-release gap, the NOT NULL variant is forbidden outright \u2014 so if you're seeing that in a pipeline, the pipeline is violating the policy, not the policy failing to cover it.\n\n2. Your docs disagree with each other. /root/hdm/examples/memories/postgres-notes.md line 10: \"Every migration reversible, or explicitly marked as not. A migration that can only move forward gets reviewed twice.\" That's a different stance from the forward-only policy I have recorded (agreed 2026-07-11, with the review-by-DB-lead exceptions). I answered from the forward-only version because it's the explicitly agreed policy and it's the one that makes canary rollback coherent. If postgres-notes.md is actually the current rule, then the answer changes to \"sometimes, and only if the migration was written with a down-path\" \u2014 tell me which one is authoritative and I'll note it.\n",
-  "dynamic_answer": "No. Roll back the code only.\n\nFrom the deploy-ordering notes (step 3): if the canary fails, roll back the code but NOT the migration. Two reasons:\n\n- The migration is already backward-compatible and the old code still running elsewhere depends on it \u2014 reverting it breaks those instances.\n- Migrations are forward-only by policy (expand/contract). There are no down-migrations; a bad migration gets fixed by a new migration.\n\nCorollary: cleanup (step 6 \u2014 dropping old columns/tables) must never ship in the same release as the migration itself. That's what makes the no-rollback stance safe \u2014 nothing destructive has happened yet at canary-failure time.\n\nSources: ~/.hermes/memories/cx_c3_deploy_ordering.md, ~/.hermes/memories/cx_c1_expand_contract.md\n"
- },
- {
-  "fact": "c3_deploy_ordering",
-  "probe": "detail: separate later release",
-  "question": "when does the cleanup migration run?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "My notes have this from the 2026-07-11 migration policy agreement \u2014 it's the only place it's recorded here (no doc on disk).\n\nCleanup = the contract half of expand/contract, i.e. dropping the now-dead column. Two timing rules stack:\n\n1. It runs at least one full release after the deploy that stopped writing the column. Dropping a column in the same release as the deploy that stops writing it is forbidden \u2014 minimum one release gap.\n2. Like every migration, it runs before that release's application code deploys, never after.\n\nSo the sequence is: release N stops writing the column \u2192 release N+1's migration drops it \u2192 release N+1's app code deploys afterward.\n\nTwo adjacent constraints that usually matter when you're scheduling it:\n- The exception path (a same-release drop) needs the database lead's written approval.\n- The migration must pass against a production snapshot taken within the last 7 days, not a synthetic schema. Migrations are forward-only \u2014 there's no down-migration, a bad one is fixed by a new migration, which is the reason the one-release gap exists at all.\n\nIf you meant a different \"cleanup migration\" (e.g. a data backfill cleanup), say the word \u2014 nothing under that name is recorded on this machine.\n",
-  "dynamic_answer": "Cleanup (the \"contract\" migration: dropping old columns/tables) runs **last, in a separate later release** \u2014 never in the same deploy as the expand migration.\n\nSpecifically, from my notes (~/.hermes/memories/cx_c3_deploy_ordering.md):\n\n- Step 6 of the deploy order: only *after* migrations \u2192 canary (1 instance/5%, hold 20 min) \u2192 50% (hold 10 min) \u2192 100%, does the cleanup migration run.\n- \"Step 6 must never happen in the same deploy as step 1. Cleanup is always a separate, later release.\"\n- Minimum one-release gap: dropping a column is forbidden in the same release as the deploy that stops writing it (cx_c1_expand_contract.md, policy of 2026-07-11).\n- If the canary fails at the 20-min hold, roll back the code but *not* the migration \u2014 it's already backward-compatible, and rolling it back breaks old code still running elsewhere.\n"
- },
- {
-  "fact": "c4_access_control",
-  "probe": "headline",
-  "question": "who can read production data?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have an answer to that, and I don't want to invent one.\n\nWhat I checked: my persistent memory (holds two policies \u2014 the expand/contract database migration policy from 2026-07-11 and the incident severity definitions from 2026-08-20; neither says anything about read access to production data), session history (only three recent sessions, all about migrations/canary timing), and the files on this machine under /root (nothing but the hdm repo, unrelated).\n\nClosest thing I do have: the migration policy requires \"the database lead's written approval\" for the two migration exceptions. That's about schema changes, not about who may read production data, so I'm not going to stretch it into an answer.\n\nIf you point me at the source \u2014 a policy doc, a wiki URL, an access-control config, or a repo path \u2014 I'll read it and answer from that. If you meant a live system (e.g. \"who has read grants on this prod database\"), tell me which host/connection to check and I'll query the grants directly.\n",
-  "dynamic_answer": "From your production access rules (effective 2026-06-01, cx_c4_access_control.md):\n\n- Any engineer \u2014 read access is open to all engineers, but only through the read-replica. Direct connections to the primary are blocked by network policy; getting to the primary needs a stated reason plus a ticket.\n- Contractors \u2014 no production access of any kind, including read. They work against a sanitised staging dataset refreshed weekly.\n- Everyone else \u2014 no read path is defined for non-engineers, so the default is no access.\n\nRelated, since they usually come up together: write access requires the `prod-writers` group (re-requested every 90 days with justification, no auto-renewal), and emergency access is the `ops-emergency` break-glass account, which pages the on-call security engineer and requires a written account within 24 hours.\n"
- },
- {
-  "fact": "c4_access_control",
-  "probe": "detail: 90 days, must re-request",
-  "question": "how long does prod write access last?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have a recorded answer for that \u2014 nothing in my memory or in any local file defines how long production write access lasts. I checked memory, files under /root, the Hermes skills/docs, and past sessions; the only prod-adjacent policies I hold are the migration expand/contract rules (DB lead's written approval required for exceptions) and the incident severity definitions. Neither mentions write-access duration, and I'm not going to guess a number.\n\nWhere is it written down \u2014 a runbook, an access-policy doc, an IAM config? Point me at it and I'll pull the actual duration (and note any renewal/expiry mechanism), or store it in memory if you want it available every session.\n",
-  "dynamic_answer": "90 days.\n\nPer cx_c4 (production access rules, effective 2026-06-01): write access requires the `prod-writers` group, and membership is granted for 90 days, then must be re-requested with justification \u2014 it does not auto-renew.\n\nRelated limits in the same file: read access is any engineer but read-replica only (primary needs a ticket); break-glass (`ops-emergency`) pages on-call security automatically and needs a written account within 24 hours, with three unaccounted uses in a quarter freezing the account; contractors get no production access at all.\n\nFile: /root/.hermes/memories/cx_c4_access_control.md\n"
- },
- {
-  "fact": "c4_access_control",
-  "probe": "detail: pages security engineer, 24h writeup",
-  "question": "what happens when someone uses the break-glass account?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have anything on that. Nothing in my memory or any notes covers a break-glass account \u2014 my only stored policies are the DB migration expand/contract rule and the incident severity definitions, and neither mentions break-glass. A filesystem search turns up the phrase only in Hermes's own SECURITY.md, about an operator decision during Hermes setup, which is unrelated to any account of yours.\n\nSo I can't tell you what the procedure is \u2014 provisioning, who's allowed to use it, alerting, post-use review, or credential rotation. I'd be making it up.\n\nIf you point me at where it's defined (a runbook, wiki page, Confluence/Notion doc, repo file, or even a screenshot), I'll read it and give you the actual answer. If you tell me the effective procedure, I'll store it so it's available next time.\n",
-  "dynamic_answer": "From your notes (~/.hermes/memories/cx_c4_access_control.md, production access rules effective 2026-06-01):\n\nUsing the break-glass account \u2014 the `ops-emergency` account \u2014 triggers two things automatically:\n\n1. It pages the on-call security engineer.\n2. It requires a written account of what was done, within 24 hours.\n\nAccountability rule: three unaccounted uses in a quarter freeze the account until review.\n"
- },
- {
-  "fact": "c4_access_control",
-  "probe": "detail: 3 unaccounted -> freeze",
-  "question": "what happens if break-glass is used too many times unaccounted?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "Still nothing on it \u2014 this is the second time it's come up, and I have no source for your break-glass policy.\n\nWhat I checked: my memory (only the expand/contract migration rule and the incident severity definitions \u2014 neither mentions break-glass), `/root`, `/root/.hermes`, `/srv`, `/opt`, `/home`, `/tmp`, `/etc` for any runbook/policy/access doc, and past sessions. The only occurrences of \"break-glass\" anywhere on this box are in my own session logs and in Hermes's own SECURITY.md (\u00a73.2, about an operator setup trade-off, unrelated to any account of yours). No runbook, no policy file, no note.\n\nSo I can't tell you what happens on repeated unaccounted use \u2014 escalation path, whether the account gets rotated/disabled, who reviews the logs, or the threshold that counts as \"too many.\" That's your org's control, and I'd be inventing it. (Separately, if this showed up as a question from a doc you're writing: I won't draft policy text as if it were your effective rule.)\n\nTwo ways to get a real answer:\n- Point me at the source \u2014 runbook, wiki/Confluence/Notion page, repo file, ticket, or a screenshot \u2014 and I'll read it.\n- Or just tell me the rule and I'll store it in memory alongside the other two. Then next time this question lands, it gets answered instead of deflected.\n\nThe prior session asked essentially this same question and dead-ended the same way: @session:default/20260919_161545_02e485\n",
-  "dynamic_answer": "Per the production access rules (cx_c4_access_control.md, effective 2026-06-01):\n\nBreak-glass = the `ops-emergency` account. Every use pages the on-call security engineer automatically and requires a written account of what was done within 24 hours. Three unaccounted uses in a quarter freezes the account until review \u2014 so it's not a per-incident penalty, it's a quarterly budget of three misses before the account is locked pending review.\n\nRelated constraints in the same doc, in case they matter: write access needs `prod-writers` membership (granted 90 days, no auto-renew, re-request with justification); read access is read-replica only, primary needs a ticket and a reason; contractors get no production access at all, not even read.\n"
- },
- {
-  "fact": "c4_access_control",
-  "probe": "detail: no, sanitised staging only",
-  "question": "can contractors access production?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "No \u2014 I have nothing that says either way. There is no contractor-access policy recorded anywhere I can reach, and I won't invent one.\n\nWhat I checked:\n- Persistent memory: exactly two entries \u2014 the expand/contract database migration policy (2026-07-11) and the incident severity definitions (2026-08-20). Neither mentions contractors, vendors, third parties, or production access grants.\n- Files on this machine: searched /root (including hidden dirs), /home, /srv, /opt, /tmp, /etc for \"contractor\", \"production access\", \"third-party\"/\"vendor\". The only hits are unrelated library code and synthetic example docs in /root/hdm (that repo's examples are explicitly fictional).\n- Session history: four prior sessions asked the same family of questions (\"who can read production data?\", \"how long does prod write access last?\", \"what happens when someone uses the break-glass account?\") \u2014 all ended with no source found. Nothing in the transcript log either (the one \"contractor\" hit in agent.log is this conversation).\n\nThe nearest thing I do hold is the migration policy's requirement for \"the database lead's written approval\" on two schema-change exceptions. That's about schema changes, not about who may touch production, so it doesn't answer your question.\n\nWhere is it written down \u2014 an access-control policy doc, an IAM/SSO group config, a contractor onboarding runbook? Give me the path or URL and I'll read it and answer from the actual text, and store the rule in memory if you want it available every session. If instead you want to know what's true today on a live system, tell me which host/IdP to query and I'll check the group memberships and grants directly.\n",
-  "dynamic_answer": "No. Per the access-control policy (effective 2026-06-01): contractors have no production access of any kind, including read. They work against a sanitised staging dataset refreshed weekly.\n\nFor contrast, the same policy gives everyone else only:\n- Read: any engineer, read-replica only (primary connections blocked by network policy).\n- Write: `prod-writers` group, granted 90 days and re-requested with justification \u2014 no auto-renew.\n- Break-glass: `ops-emergency` account, pages on-call security automatically, written account required within 24h; three unaccounted uses in a quarter freezes it.\n"
- },
- {
-  "fact": "c5_retention_matrix",
-  "probe": "headline",
-  "question": "how long do we keep audit logs?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have that one. Nothing in my memory or in the files on this machine states an audit-log retention period.\n\nWhat I do have saved is two policies, neither of which covers it:\n\n- Database migration policy (expand/contract, one-release gap, forward-only migrations) \u2014 silent on logging.\n- Incident severity definitions (Sev-1/2/3, paging, postmortem windows) \u2014 silent on logging.\n\nSearches for \"audit log\" / \"retention\" across /root and the Hermes config turned up nothing relevant \u2014 the only hits are unrelated (a Java memory note, Node's `--permission-audit` docs, skill prose).\n\nIf you have the policy doc (a wiki page, compliance spreadsheet, or runbook), point me at it or paste the text and I'll save the retention rule to memory so it's available next time. Otherwise tell me the number and I'll record it.\n",
-  "dynamic_answer": "Audit logs: 7 years, immutable WORM storage \u2014 no exceptions, no customer deletion honored (legal holds a standing exemption). Source: ~/.hermes/memories/cx_c5_retention_matrix.md (last revised 2026-09-01).\n\nRelated classes from the same matrix, in case you meant one of them:\n- Customer PII: deleted within 30 days of account closure or on a verified erasure request; backups may lag up to 90 days.\n- Payment records: 7 years (tax law), overrides deletion requests.\n- Metrics/traces: 13 months, rolled up to 1-minute resolution after 30 days; raw traces dropped at 30 days.\n"
- },
- {
-  "fact": "c5_retention_matrix",
-  "probe": "detail: no, legal exemption",
-  "question": "can a customer get their data deleted from audit logs?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have a policy on that. I checked my notes and the filesystem: my stored policies are the database migration rule (expand/contract, agreed 2026-07-11) and the incident severity definitions (revised 2026-08-20) \u2014 neither says anything about audit logs, retention, or customer data-deletion requests. Nothing in /root or the Hermes config mentions an audit-log deletion procedure either, and there's no prior session where it came up.\n\nSo the honest answer is: I can't tell you the rule here, and I'm not going to guess one \u2014 audit-log retention is exactly the kind of thing where the answer differs per jurisdiction and per contract, and a made-up \"yes, within 30 days\" would be worse than no answer.\n\nTwo ways I can help:\n- If you point me at the source (a compliance/DPA doc, a runbook, a repo path, a link), I'll read it and give you the actual rule.\n- If you want my general reasoning on the trade-off (subject-access/deletion rights vs. the fact that audit logs are usually the exception carved out for security and legal-hold reasons), say so and I'll lay it out as opinion, clearly labelled.\n\nWant me to record the policy once you find it?\n",
-  "dynamic_answer": "No \u2014 per the retention matrix (memory file cx_c5_retention_matrix.md, revised 2026-09-01):\n\nAudit logs: 7 years, immutable (WORM storage), no exceptions, and no customer deletion is honoured \u2014 legal holds a standing exemption for these.\n\nSo an erasure request never touches audit logs. What it does reach:\n- Customer PII: deleted within 30 days of account closure, or immediately on a verified erasure request \u2014 but backups are exempt from the 30-day clock and can hold it up to 90 days, which is disclosed in the privacy policy.\n- Payment records: 7 years, tax-law requirement \u2014 explicitly overrides a deletion request; tell the customer why.\n- Metrics/traces: 13 months, rolled up to 1-minute resolution after 30 days; raw traces dropped at 30 days.\n\nIf a customer pushes back, the answer is \"audit logs are legally exempt and immutable; PII is erased on request, with up to 90 days of residue in backups.\"\n"
- },
- {
-  "fact": "c5_retention_matrix",
-  "probe": "detail: backups exempt, expire in 90 days",
-  "question": "what happens to PII in backups on an erasure request?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "No policy doc for this exists in the workspace \u2014 I searched /root and there's no erasure/PII/retention document, and no prior session covers it. So this is the general answer, not a quote of your policy.\n\nShort version: the live record gets deleted; backups do not get surgically rewritten. Instead the data is suppressed in the live estate and either excluded at restore time or allowed to age out on the backup's own retention cycle. Regulators (ICO/EDPB reading of GDPR Art. 17(3)(b)) accept this \u2014 but only if you can demonstrate the balance was deliberate.\n\nWhat that means in practice:\n\n- Suppression, not silence. You keep an erasure ledger (subject key or hash) that restore tooling reads. Every restore replays it and drops or re-anonymises those rows before the data re-enters production. Skipping this is the classic failure: an erased subject resurrects the first time you restore, and that's the finding auditors look for.\n- Crypto-shredding. For immutable or offsite media (WORM, object-lock buckets, tape, cold archive), destroying a per-subject or per-period encryption key is often the only feasible mechanism. It counts as erasure if the key is genuinely gone \u2014 and if you're not keeping per-subject keys, you're telling the regulator the data is unrecoverable in principle, which needs to be true.\n- Bounded retention. \"Erased at next expiry\" is only defensible if expiry exists and is enforced. Rollover windows that never actually expire are the usual gap.\n- Derived copies count. Warehouse, search indexes, caches, event-stream/tiered storage, ML feature stores and training sets, exports, DR replicas, analytics snapshots. An erasure that lands in the primary DB and nowhere else is the practical hole.\n- Overrides. Legal hold, tax and financial-record retention beat erasure. Document the exemption and its end date rather than pretending the request was fully honoured.\n- Evidence. Log the request, the action taken, the suppression key, and a restore-test proving suppression works. When you respond to the subject, say plainly what remains in backups and until when.\n\nThe one thing that is not defensible: indefinite backup retention whose real purpose is to avoid doing erasure. \"Technically infeasible\" is a valid argument; \"inconvenient\" is not.\n\nIf you want, I can draft the policy section (retention windows, suppression-ledger design, restore-runbook step) in the same style as your migration and incident-severity notes.\n",
-  "dynamic_answer": "From the retention matrix (last revised 2026-09-01):\n\nErasure request \u2192 customer PII is deleted immediately from live systems. Backups are explicitly exempt from that immediate clock: backup copies must expire within 90 days, so an erasure request can leave the data sitting in backups for up to 90 days. That gap is disclosed in the privacy policy.\n\nTwo carve-outs that survive an erasure request entirely:\n\n- Payment records \u2014 7 years, required by tax law. Overrides a deletion request; the customer is told why.\n- Audit logs \u2014 7 years in immutable WORM storage, no exceptions, no customer deletion honoured (standing legal exemption).\n\nSo a \"verified erasure\" is: live PII gone now, backup PII gone \u226490 days, payment + audit data retained regardless. If you're writing customer-facing copy, the honest phrasing is \"up to 90 days in backups, and payment/audit records are retained as legally required\" \u2014 not \"deleted immediately.\"\n\nSource: ~/.hermes/memories/cx_c5_retention_matrix.md\n"
- },
- {
-  "fact": "c5_retention_matrix",
-  "probe": "detail: 13 months, raw dropped at 30 days",
-  "question": "how long do we keep metrics and traces?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have that \u2014 no retention policy for metrics or traces is recorded anywhere I can reach.\n\nWhat I checked:\n- Persistent memory: only two entries, both unrelated (database migration expand/contract policy; incident severity definitions). Neither mentions observability retention.\n- Session history: empty \u2014 zero past sessions in this profile, so no prior conversation to recall.\n- Filesystem: nothing. A content search across / for retention/observability terms (Datadog, Prometheus, Grafana, Tempo, Jaeger, TTL, \"retain N days\") turned up only unrelated Hermes/OS source files and an incidental \"retention cycles\" line in a Java GC memory example.\n\nSo I can't give you a number without inventing one, which I won't do.\n\nIf you tell me the actual policy (e.g. \"metrics 15 months, traces 30 days\") I'll save it to memory so it's answered instantly next time. Otherwise, point me at where it lives \u2014 a runbook, the observability repo's config (retention is often set in the Prometheus/Tempo config rather than a doc), or a wiki page \u2014 and I'll read it and confirm.\n",
-  "dynamic_answer": "Metrics and traces: 13 months total, with rollup after 30 days to 1-minute resolution. Raw traces are dropped entirely at 30 days (from ~/.hermes/memories/cx_c5_retention_matrix.md, last revised 2026-09-01).\n"
- },
- {
-  "fact": "c6_oncall_escalation",
-  "probe": "headline",
-  "question": "what's the escalation path for on-call?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have one. No on-call escalation path exists in anything I can reach.\n\nWhat I checked: my stored notes (only two entries \u2014 the expand/contract migration rule and the incident severity definitions, neither of which describes a contact chain or rotation), past sessions (plenty of traffic about sev-1 notification timing, nothing defining an escalation path), and the filesystem \u2014 grepped /root, /srv, /opt, /etc, /home, /tmp, /var and searched for runbook/oncall/escalation files by name. Every hit was third-party library noise. There's no runbook or pager policy on this box.\n\nWhat I do have is the paging/notification requirements tied to severity, which is adjacent but not the same thing (revised 2026-08-20):\n\n- Sev-1: page immediately, 24/7; incident commander in place within 10 minutes; executive notification within 30 minutes.\n- Sev-2: page during business hours only; commander required, no executive notification.\n- Sev-3: ticket only, no page. Three sev-3s in a month escalates to a sev-2 review.\n\nThat tells you when a page fires and who has to be involved \u2014 not the escalation ladder itself: no tiers (primary/secondary), no timeouts before bumping, no names, no rotation, no \"if the IC doesn't respond in N minutes, then\u2026\" rule. I'd be inventing all of that.\n\nIf you give me the actual policy (or point me at the runbook, wiki page, or pager config), I'll read it and store it in memory next to the other two \u2014 then this question gets answered instead of deflected. Related dead-end from earlier today, same shape: @session:default/20260919_161609_12817d\n",
-  "dynamic_answer": "On-call escalation path (from your notes, /root/.hermes/memories/cx_c6_oncall_escalation.md):\n\n  t=0       Primary on-call paged \u2014 must respond within 5 minutes\n  t=5 min   Unacknowledged \u2192 secondary is paged\n  t=15 min  Still unacknowledged \u2192 engineering manager is paged\n  t=30 min  \u2192 CTO is paged, and the incident is automatically declared sev-1\n            regardless of its original appearance\n\nAdjacent rules in that doc:\n\n  Handover at 10:00 and 22:00 local, and handover must include open\n  investigations, not just active incidents.\n  Fatigue: no one takes primary more than 7 consecutive days; after any\n  sev-1 that ran past 4 hours, responders get the next business day off\n  without asking.\n\nWorth flagging: the 30-minute auto-sev-1 interacts with your severity definitions (cx_c2_incident_severity.md) \u2014 sev-2 is \"page during business hours only,\" so an unacknowledged sev-2 crossing 30 minutes silently becomes sev-1 and pulls in executive notification within 30 minutes and a 5-business-day blameless postmortem. That's the trap in this pairing.\n"
- },
- {
-  "fact": "c6_oncall_escalation",
-  "probe": "detail: 5 minutes",
-  "question": "how long before the secondary on-call is paged?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have that one. My stored incident policy (revised 2026-08-20) covers severity definitions, paging windows, IC and exec notification timings \u2014 Sev-1: page immediately 24/7, IC within 10 min, exec within 30 min; Sev-2: business-hours page, commander but no exec notification; Sev-3: ticket only with the three-in-a-month escalation rule \u2014 but it says nothing about a secondary on-call rotation or when the secondary gets paged.\n\nI searched /root as well; the only matches are my own memory notes, no runbook or escalation doc on disk. So I can't give you a number without inventing one.\n\nIf you tell me the rule I'll add it to the notes; otherwise point me at the runbook (path or URL) and I'll pull the escalation ladder out of it.\n",
-  "dynamic_answer": "5 minutes. The primary has 5 minutes to acknowledge; if unacknowledged at the 5-minute mark, the secondary is paged. If it's still unacknowledged at 15 minutes the engineering manager is paged, at 30 minutes the CTO \u2014 and it's auto-declared sev-1 at that point.\n\n(Source: /root/.hermes/memories/cx_c6_oncall_escalation.md)\n"
- },
- {
-  "fact": "c6_oncall_escalation",
-  "probe": "detail: CTO + auto sev-1",
-  "question": "what happens at 30 minutes unacknowledged?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have anything defining an \"unacknowledged at 30 minutes\" rule. I checked my notes and past sessions \u2014 no match.\n\nThe only 30-minute threshold I have is in the incident severity policy, and it's a different thing: for Sev-1, executive notification must go out within 30 minutes of the incident being declared. That's a notification deadline, not an acknowledgment/escalation timer.\n\nIf you meant that: at 30 minutes for a Sev-1, the requirement is exec notification \u2014 commander should already have been named by 10 minutes, and paging is immediate, 24/7.\n\nIf you have a source doc (runbook, on-call policy) that defines an ack timeout, point me at it or paste the relevant section and I'll work from that instead of guessing.\n",
-  "dynamic_answer": "From the on-call escalation policy (cx_c6_oncall_escalation.md):\n\nAt 30 minutes unacknowledged, the CTO is paged \u2014 and at that point the incident is automatically declared sev-1 regardless of what it looked like when it first came in.\n\nThe full chain:\n- 5 min unacknowledged \u2192 secondary on-call paged\n- 15 min unacknowledged \u2192 engineering manager paged\n- 30 min unacknowledged \u2192 CTO paged + automatic sev-1\n\nRelated but separate 30-minute clock, from the severity definitions (cx_c2): a sev-1 requires executive notification within 30 minutes of declaration \u2014 which, after a 30-minute unacked page, starts once the auto-sev-1 kicks in.\n\nHandover is at 10:00 and 22:00 local, and must include open investigations, not just active incidents.\n"
- },
- {
-  "fact": "c6_oncall_escalation",
-  "probe": "detail: 7 days max",
-  "question": "how many consecutive days can someone be primary?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "I don't have that one. Nothing in my stored notes or in past sessions defines a limit on consecutive \"primary\" days.\n\nThe policies I do hold are:\n- the expand/contract database migration policy (one-release backward compatibility, migration before app deploy, forward-only rollback), and\n- the incident severity definitions (Sev-1/2/3 paging, commander and exec notification timings, postmortem requirements) \u2014 revised 2026-08-20.\n\nNeither mentions on-call primary rotations. If you mean an on-call \"primary\" rotation cap, point me at the source doc (or the platform's schedule) and I'll check it; otherwise tell me the intended limit and I'll write it up and remember it.\n",
-  "dynamic_answer": "7 consecutive days.\n\n\"Fatigue rule: nobody takes primary for more than 7 consecutive days\" (from the on-call escalation policy). Related: after any sev-1 that ran past 4 hours, the responders get the next business day off without needing to ask.\n"
- },
- {
-  "fact": "c6_oncall_escalation",
-  "probe": "detail: next business day off after 4h+ sev-1",
-  "question": "what's the rule after a long sev-1?",
-  "native_stored": false,
-  "native_recalled": false,
-  "dynamic_recalled": true,
-  "native_answer": "Nothing in my notes or past sessions defines a \"long\" sev-1 rule \u2014 no IC relief/rotation after N hours, no extended-incident clause.\n\nWhat I do have as the post-sev-1 rule: a written, blameless postmortem within 5 business days, reviewed in the weekly engineering meeting. That's duration-independent \u2014 it applies to any sev-1, short or long.\n\nIf you're working from a runbook or on-call policy that has a duration-based rule (relief rotation, exec re-notification, a re-declare threshold), point me at it and I'll work from the actual text instead of guessing.\n",
-  "dynamic_answer": "Rule is in the on-call escalation note (cx_c6_oncall_escalation.md), under \"Fatigue rule\":\n\nAfter any sev-1 that ran past 4 hours, the responders get the next business day off \u2014 no need to ask.\n\nSame note also caps primary on-call at 7 consecutive days. The sev-1 severity definitions themselves (cx_c2_incident_severity.md) only cover postmortem timing: written postmortem within 5 business days, blameless, reviewed in the weekly engineering meeting.\n"
- }
-]
+ "results": [
+  {
+   "fact": "c1_expand_contract",
+   "probe": "headline",
+   "question": "what is our database migration policy?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "From my notes \u2014 migration policy agreed 2026-07-11:\n\nCore rule: every schema change must be backward-compatible for exactly one release (expand/contract). The migration runs BEFORE the new application code deploys, never after.\n\nForbidden without the database lead's written approval (two exceptions, both requiring it):\n- Dropping a column in the same release as the deploy that stops writing it. Minimum one-release gap.\n- Adding a NOT NULL column with no default. Not allowed at all \u2014 add with a default, then backfill.\n\nVerification: the migration must pass against a production snapshot taken within the last 7 days, not a synthetic schema.\n\nRollback: migrations are forward-only. There are no down-migrations \u2014 a bad migration is fixed by a new migration, which is exactly why the one-release gap exists.\n\nCaveat: that's what's in my stored notes, which could be stale if the policy changed since July. If you want, I can check whether there's a current doc in the repo or vault to confirm.\n",
+   "dynamic_answer": "From the database migration policy note (/root/.hermes/memories/cx_c1_expand_contract.md), agreed 2026-07-11:\n\nCore rule \u2014 expand/contract\nEvery schema change must be backward-compatible for exactly one release, and the migration runs BEFORE the new application code deploys, never after.\n\nForbidden / exception cases (both need the database lead's written approval)\n- Dropping a column in the same release as the deploy that stops writing it \u2014 minimum one release gap required.\n- Adding a NOT NULL column without a default \u2014 forbidden entirely; use a default, then backfill.\n\nVerification\nThe migration must pass against a snapshot of production taken within the last 7 days, not against a synthetic schema.\n\nRollback\nMigrations are forward-only \u2014 there are no down-migrations. A bad migration is fixed by a new migration; that's why the one-release gap exists.\n\nRelated notes I also hold: deploy ordering (cx_c3), incident severity (cx_c2), access control (cx_c4), retention matrix (cx_c5), on-call escalation (cx_c6). Say the word if you want any of them.\n"
+  },
+  {
+   "fact": "c1_expand_contract",
+   "probe": "detail: the one-release gap",
+   "question": "how long before we can drop a column after the code stops using it?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "One full release, minimum. The deploy that stops writing the column has to ship first; the drop cannot land in that same release \u2014 it goes in the next one. That gap is what makes the change safe, since migrations are forward-only (a bad migration gets fixed by a new migration, not a down-migration). Dropping earlier requires the database lead's written approval.\n",
+   "dynamic_answer": "Minimum one full release of separation \u2014 not a time window, a release boundary.\n\nThe policy (agreed 2026-07-11):\n\n- Dropping a column in the same release as the deploy that stops writing it is forbidden. The drop has to wait until at least the next release, and the cleanup migration must be a separate, later release from the expand migration \u2014 never in the same deploy.\n- Dropping is also gated on rollout completion: cleanup runs only after the new code is at 100% traffic, i.e. after the canary holds (20 min at under 0.5% errors and p99 under 400ms), the 50% hold, then full promote. So a long canary/rollback cycle extends the clock in practice.\n- It's a written-approval exception, not a routine change: droppping a column requires the database lead's written approval.\n- Migrations are forward-only (no down-migrations), which is the underlying reason for the gap \u2014 and if the canary fails, you roll back the code, not the migration.\n\nTwo related constraints worth keeping in view: the expand migration must run before the new code deploys (never after) and must verify against a production snapshot taken within the last 7 days, not a synthetic schema; and NOT NULL columns without a default are banned outright \u2014 add with a default, then backfill.\n"
+  },
+  {
+   "fact": "c1_expand_contract",
+   "probe": "detail: NOT NULL requires default",
+   "question": "what's the rule about adding a NOT NULL column?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "From the database migration policy (agreed 2026-07-11, expand/contract):\n\nAdding a NOT NULL column without a default is forbidden entirely \u2014 no exception process for it (unlike column drops, which need a one-release gap and the DB lead's written approval). The required approach is to add the column with a default, then backfill.\n\nThe broader rules it sits inside: the migration runs before the new application code deploys, and it must be verified against a production snapshot taken within the last 7 days. Migrations are forward-only \u2014 no down-migrations, so a bad one is fixed by a new migration.\n",
+   "dynamic_answer": "Forbidden entirely \u2014 \"Adding a NOT NULL column without a default is forbidden entirely; use a default then backfill.\"\n\nThat's from the migration policy (cx_c1_expand_contract), agreed 2026-07-11. Two details that matter around it:\n\n- The whole scheme is expand/contract: every schema change must be backward-compatible for exactly one release, and the migration runs before the new app code deploys, never after.\n- It's listed as an exception, so it would need the database lead's written approval \u2014 but even then the rule reads as a flat prohibition, so the path is: add the column with a default, then backfill.\n\nRelated constraints in the same policy: dropping a column can't happen in the same release as the deploy that stops writing it (one release gap minimum), migrations must be verified against a production snapshot taken within 7 days (not a synthetic schema), and migrations are forward-only \u2014 no down-migrations, fix a bad one with a new migration.\n"
+  },
+  {
+   "fact": "c1_expand_contract",
+   "probe": "detail: prod snapshot within 7 days",
+   "question": "what does the migration have to be tested against?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "A snapshot of production taken within the last 7 days \u2014 not a synthetic schema.\n\nThat's the verification requirement in the expand/contract migration policy (agreed 2026-07-11). Related rules from the same policy, in case they're what you're actually after: the migration runs before the new app code deploys, never after; migrations are forward-only (no down-migrations, a bad one is fixed by a new one); dropping a column requires a minimum one-release gap after writes stop; and a NOT NULL column without a default is forbidden entirely.\n",
+   "dynamic_answer": "A snapshot of production taken within the last 7 days \u2014 explicitly not a synthetic/hand-built schema.\n\nFrom the migration policy (cx_c1_expand_contract.md): \"the migration must pass against a snapshot of production taken within the last 7 days, not against a synthetic schema.\"\n\nTwo related constraints that shape that test: the migration runs before the new code deploys (never after), and it must be backward-compatible for exactly one release \u2014 so the snapshot test is what proves it against real data shapes rather than an idealized one.\n"
+  },
+  {
+   "fact": "c1_expand_contract",
+   "probe": "detail: forward-only, no downs",
+   "question": "are there down-migrations?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "No. The policy is forward-only: no down-migrations. A bad migration gets fixed by a new migration \u2014 which is exactly why the one-release gap before dropping a column exists.\n",
+   "dynamic_answer": "No. Per the migration policy in /root/.hermes/memories/cx_c1_expand_contract.md (agreed 2026-07-11):\n\n\"Migrations are forward-only. There are no down-migrations; a bad migration is fixed by a new migration, which is why the one-release gap exists.\"\n\nRelated rules from the same file:\n- Dropping a column is forbidden in the same release as the deploy that stops writing it \u2014 minimum one release gap (needs the database lead's written approval).\n- Adding a NOT NULL column without a default is forbidden outright \u2014 use a default, then backfill.\n- Verification: the migration must pass against a production snapshot taken within the last 7 days, not a synthetic schema.\n"
+  },
+  {
+   "fact": "c1_expand_contract",
+   "probe": "detail: the named approver",
+   "question": "who has to approve a migration exception?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "The database lead \u2014 written approval, and only the two carve-outs need it: dropping a column (requires a one-release gap after the deploy that stops writing it) and adding a NOT NULL column with no default (forbidden outright, even with approval \u2014 default + backfill instead).\n",
+   "dynamic_answer": "The database lead \u2014 in writing.\n\nThe only exception that approval actually unlocks is the one-release gap for dropping a column (dropping it in the same release as the deploy that stops writing it). The other bullet \u2014 adding a NOT NULL column without a default \u2014 is forbidden outright, not approvable, so no signature gets you there; use a default then backfill.\n\nSource: /root/.hermes/memories/cx_c1_expand_contract.md (migration policy, agreed 2026-07-11). The deploy-ordering note (cx_c3) is consistent: cleanup/column removal is always a separate later release, never the same deploy as the expand migration.\n"
+  },
+  {
+   "fact": "c2_incident_severity",
+   "probe": "headline",
+   "question": "how do we define a sev-1?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "From what's on record (severity definitions revised 2026-08-20):\n\nSev-1 \u2014 customer-visible data loss, corruption, or complete outage of a revenue-critical path.\n\nResponse obligations:\n- Page immediately, 24/7.\n- Incident commander assigned within 10 minutes.\n- Executive notification within 30 minutes.\n- Written postmortem within 5 business days; blameless, and reviewed in the weekly engineering meeting.\n\nThe distinguishing test versus Sev-2 is scope and impact type: Sev-1 requires customer-visible data loss/corruption or a total outage of a revenue-critical path, while Sev-2 covers degradation affecting only a subset of customers or a non-critical path (business-hours paging, no executive notification).\n\nNote: this comes from my stored notes, not a doc in the repo \u2014 I searched and found no severity policy file on disk, only the memory entry. If there's a canonical version somewhere (Confluence, runbook, repo), point me at it and I'll reconcile.\n",
+   "dynamic_answer": "From our incident severity doc (revised 2026-08-20):\n\nSev-1 = customer-visible data loss or corruption, OR complete outage of a revenue-critical path.\n\nResponse requirements:\n- Page immediately, 24/7\n- Incident commander engaged within 10 minutes\n- Executive notification within 30 minutes\n- Blameless written postmortem within 5 business days, reviewed at the weekly engineering meeting\n\nContrast: sev-2 is degradation hitting a subset of customers or a non-critical path (business-hours paging, commander but no exec notification); sev-3 is internal-only, ticket no page.\n\nOne thing worth flagging: partial degradation of a revenue-critical path is not spelled out \u2014 the definition reads as \"complete outage,\" so a 30% failure rate on checkout lands ambiguously between sev-1 and sev-2. The doc is at /root/.hermes/memories/cx_c2_incident_severity.md.\n"
+  },
+  {
+   "fact": "c2_incident_severity",
+   "probe": "detail: 10-minute commander",
+   "question": "how fast does a sev-1 need an incident commander?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "10 minutes. Sev-2 also requires a commander, but with no clock attached.\n",
+   "dynamic_answer": "Sev-1 requires an incident commander on duty within 10 minutes of the page (page the response immediately, 24/7). Executive notification is due within 30 minutes. Source: incident severity definitions (revised 2026-08-20), /root/.hermes/memories/cx_c2_incident_severity.md.\n\nRelated: the on-call escalation ladder pages secondary at 5 minutes, EM at 15, CTO at 30 \u2014 and at 30 minutes the incident is auto-declared sev-1 regardless of initial appearance.\n"
+  },
+  {
+   "fact": "c2_incident_severity",
+   "probe": "detail: exec notification in 30 min",
+   "question": "who gets notified in a sev-1 and how fast?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "Sev-1 (customer-visible data loss, corruption, or total outage of a revenue-critical path):\n\n- Page immediately, 24/7 \u2014 no business-hours restriction.\n- Incident commander in place within 10 minutes.\n- Executive notification within 30 minutes.\n- Written postmortem within 5 business days, blameless, reviewed in the weekly engineering meeting.\n",
+   "dynamic_answer": "From ~/.hermes/memories/cx_c2_incident_severity.md and cx_c6_oncall_escalation.md:\n\nWho and how fast, on a sev-1:\n- Page immediately, 24/7 \u2014 primary on-call first, expected to respond within 5 minutes.\n- Incident commander in place within 10 minutes.\n- Executives notified within 30 minutes.\n\nThe escalation ladder (runs on unacknowledged pages, and its top rung forces a sev-1):\n- 5 min no ack \u2192 secondary on-call paged.\n- 15 min \u2192 engineering manager paged.\n- 30 min \u2192 CTO paged, and the incident is auto-declared sev-1 no matter how it was originally classified.\n\nTwo things worth noting that the policy doesn't spell out:\n- \"Executive notification within 30 minutes\" doesn't name which execs (only the CTO appears explicitly, in the escalation ladder).\n- Break-glass use of the `ops-emergency` account separately pages the on-call security engineer (cx_c4_access_control.md), which is a sev-1-adjacent page not covered by the severity table.\n\nPostmortem side, since it drives follow-up: sev-1s get a blameless written postmortem within 5 business days, reviewed at the weekly engineering meeting; and after any sev-1 running past 4 hours, responders get the next business day off automatically. Sources dated 2026-08-20.\n"
+  },
+  {
+   "fact": "c2_incident_severity",
+   "probe": "detail: 5 business days for sev-1/2",
+   "question": "when are postmortems required?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "Postmortems are required for Sev-1 and Sev-2 incidents \u2014 written within 5 business days of resolution.\n\nDetails per the severity definitions:\n\n- Sev-1: written postmortem within 5 business days; blameless format; reviewed in the weekly engineering meeting.\n- Sev-2: written postmortem within 5 business days; no executive notification requirement, and not part of the weekly review.\n- Sev-3: no postmortem. But three Sev-3s in a single month triggers escalation to a Sev-2 review \u2014 that's the case people tend to miss.\n\nIf you were asking about a specific incident and want me to classify it, tell me what happened and I'll apply the definitions.\n",
+   "dynamic_answer": "Postmortems are required for **sev-1 and sev-2** \u2014 written within 5 business days. Sev-1 postmortems are blameless and get reviewed in the weekly engineering meeting.\n\nSev-3 gets no postmortem, with one exception most people miss: **three sev-3s in a month escalates to a sev-2 review**, which then requires the written postmortem.\n\nRelated, since the severity can be set for you: an incident unacknowledged for 30 minutes (escalation reaching the CTO) is automatically declared sev-1 regardless of how it first looked \u2014 so it lands in postmortem territory by that rule alone.\n"
+  },
+  {
+   "fact": "c2_incident_severity",
+   "probe": "detail: 3 sev-3s -> sev-2 review",
+   "question": "what happens if we have lots of sev-3s?",
+   "native_stored": true,
+   "native_recalled": true,
+   "dynamic_recalled": true,
+   "native_answer": "Sev-3s get no postmortem individually \u2014 they're ticket-only, no page. But three sev-3s within a month counts as a recurring pattern and gets escalated to a sev-2 review. At that point it inherits the sev-2 treatment: an incident commander (no executive notification), and a written postmortem within 5 business days as part of that review.\n\nThat escalation rule is the one people forget \u2014 the threshold is three per month, not per incident.\n",
+   "dynamic_answer": "The rule you're probably looking for is in the severity policy (memories/cx_c2_incident_severity.md):\n\nThree sev-3s in a month trigger a sev-2 review \u2014 that's the escalation people forget.\n\nOtherwise, lots of sev-3s on their own are just volume: each one is internal-only, ticket with no page, and gets no postmortem. The consequence is indirect \u2014 a cluster of them is treated as a signal that something is generating repeat internal pain, and it gets pulled up to sev-2 review (which does carry a written postmortem within 5 business days).\n\nRelated, from the on-call policy: if a page goes unacknowledged for 30 minutes it's auto-declared sev-1 regardless of how it looked initially, so sev-3-heavy periods don't buy you slack if pages are being missed.\n"
+  },
+  {
+   "fact": "c3_deploy_ordering",
+   "probe": "headline",
+   "question": "what's the deploy order?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "Migration first, then the new application code. The schema change has to land (and pass against a production snapshot taken within the last 7 days) before the deploy that depends on it goes out \u2014 never the other way around.\n",
+   "dynamic_answer": "Deploy order (from cx_c3_deploy_ordering.md):\n\n1. Run migrations first \u2014 backward-compatible only.\n2. Deploy new code to canary: 1 instance, 5% of traffic.\n3. Hold 20 min. Promote only if BOTH error rate < 0.5% AND p99 latency < 400ms.\n4. Promote to 50%, hold 10 min, same thresholds.\n5. Promote to 100%.\n6. Only then run the cleanup migration (drops old columns/tables).\n\nTwo constraints that get missed:\n\n- Step 6 must never ship in the same release as step 1. Cleanup is always a separate, later release (one-release gap, per cx_c1_expand_contract.md).\n- If the canary fails at step 3: roll back the code, NOT the migration. The migration is already backward-compatible, and rolling it back breaks old code still running elsewhere. Migrations are forward-only \u2014 fix a bad one with a new migration, never a down-migration.\n"
+  },
+  {
+   "fact": "c3_deploy_ordering",
+   "probe": "detail: 0.5% errors and 400ms p99",
+   "question": "what are the canary thresholds?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "No canary thresholds are recorded anywhere I can see \u2014 not in my persistent memory, not in your notes.\n\nWhat does exist is one qualitative line in /root/hdm/examples/memories/deploy-pipeline.md:\n\n  \"Canary at low traffic share, watch error rate and p95 latency, then widen.\n   Time-based promotion is a proxy for confidence, not a measurement of it.\"\n\nSo: canary at a low traffic share, gate promotion on error rate and p95 latency, no time-based promotion. No numbers \u2014 no percentage share, no error-rate ceiling, no p95 budget, no bake duration.\n\nMy memory holds only the migration policy (one-release expand/contract) and the incident severity definitions. Nothing about canary gates.\n\nIf you have the thresholds in mind, tell me and I'll record them \u2014 an operational document like this wants a topic file (a canary-gates.md with an index line) rather than a bare memory entry. Or point me at where they should come from (a CI config, a deploy runbook) and I'll pull them.\n",
+   "dynamic_answer": "Canary gate (from your deploy-ordering notes):\n\n- Canary = 1 instance, 5% of traffic, held 20 minutes. Promote only if BOTH:\n  - error rate < 0.5%\n  - p99 latency < 400ms\n- Then 50% for 10 minutes with the same two thresholds, then 100%.\n\nRelated constraints in the same file: run migrations before canary (backward-compatible), roll back code but not the migration on canary failure, and the cleanup migration that drops old columns/tables must be a separate later release \u2014 never in the same deploy as the expand migration.\n"
+  },
+  {
+   "fact": "c3_deploy_ordering",
+   "probe": "detail: 20 min then 10 min",
+   "question": "how long do we hold the canary?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "Nothing in my notes gives a hold time \u2014 the only canary guidance I have is in /root/hdm/examples/memories/deploy-pipeline.md, and it's deliberately metric-gated rather than time-gated:\n\n  \"Canary at low traffic share, watch error rate and p95 latency, then widen.\n   Time-based promotion is a proxy for confidence, not a measurement of it.\"\n\nSo the documented rule is: hold until error rate and p95 latency look right at the current traffic share, then widen \u2014 there's no fixed window (no \"N hours\" or \"one release\") recorded anywhere I can see. I searched /root for \"canary\" and the only two hits are that file and its index line in MEMORY.md.\n\nIf your team does have a number (e.g. a fixed soak window before widening), it isn't in my notes \u2014 tell me and I'll record it.\n",
+   "dynamic_answer": "20 minutes.\n\nPer cx_c3_deploy_ordering.md: canary goes out at 1 instance / 5% of traffic, hold 20 minutes, and it's promoted only if both the error rate stays under 0.5% and p99 latency under 400ms. Then 50% for another 10 minutes at the same thresholds, then 100%. Cleanup migrations (dropping old columns/tables) must be a separate, later release \u2014 never the same deploy as the migration step.\n"
+  },
+  {
+   "fact": "c3_deploy_ordering",
+   "probe": "detail: roll back code, NOT migration",
+   "question": "if the canary fails, do we roll back the migration too?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "Short answer: no. The canary rollback is an application rollback, and it doesn't touch the schema.\n\nThe chain, from your own notes:\n\n- A rollback is redeploying the previous artifact \u2014 one step. \"If rollback requires a forward fix, it isn't a rollback.\" (deploy-pipeline.md)\n- The migration already ran before the new code started serving any traffic, so by the time the canary is failing there is nothing pending to cancel. It's applied.\n- Leaving it applied is safe by construction: the migration \"must be compatible with the old code still running during the window.\" That's the expand half. You roll the app back, the expand stays, and the next release resumes from there.\n- Rolling the schema back isn't even on the table under the agreed policy: migrations are forward-only, there are no down-migrations, and a bad migration is fixed by a new one. That's precisely why dropping a column in the same release as the deploy that stops writing it is forbidden \u2014 a canary failure at that point would leave you with no safe direction to move.\n\nSo: revert the artifact, keep the migration, ship a new migration if the schema itself is the problem.\n\nTwo things worth flagging, since you're asking in the context of \"canary fails\":\n\n1. This only holds if the release shipped the expand half. If someone bundled the contract step (a drop, or a NOT NULL column with no default), an app rollback breaks the old code. Both are banned by the agreed policy \u2014 the drop needs a one-release gap, the NOT NULL variant is forbidden outright \u2014 so if you're seeing that in a pipeline, the pipeline is violating the policy, not the policy failing to cover it.\n\n2. Your docs disagree with each other. /root/hdm/examples/memories/postgres-notes.md line 10: \"Every migration reversible, or explicitly marked as not. A migration that can only move forward gets reviewed twice.\" That's a different stance from the forward-only policy I have recorded (agreed 2026-07-11, with the review-by-DB-lead exceptions). I answered from the forward-only version because it's the explicitly agreed policy and it's the one that makes canary rollback coherent. If postgres-notes.md is actually the current rule, then the answer changes to \"sometimes, and only if the migration was written with a down-path\" \u2014 tell me which one is authoritative and I'll note it.\n",
+   "dynamic_answer": "No. Roll back the code only.\n\nFrom the deploy-ordering notes (step 3): if the canary fails, roll back the code but NOT the migration. Two reasons:\n\n- The migration is already backward-compatible and the old code still running elsewhere depends on it \u2014 reverting it breaks those instances.\n- Migrations are forward-only by policy (expand/contract). There are no down-migrations; a bad migration gets fixed by a new migration.\n\nCorollary: cleanup (step 6 \u2014 dropping old columns/tables) must never ship in the same release as the migration itself. That's what makes the no-rollback stance safe \u2014 nothing destructive has happened yet at canary-failure time.\n\nSources: ~/.hermes/memories/cx_c3_deploy_ordering.md, ~/.hermes/memories/cx_c1_expand_contract.md\n"
+  },
+  {
+   "fact": "c3_deploy_ordering",
+   "probe": "detail: separate later release",
+   "question": "when does the cleanup migration run?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "My notes have this from the 2026-07-11 migration policy agreement \u2014 it's the only place it's recorded here (no doc on disk).\n\nCleanup = the contract half of expand/contract, i.e. dropping the now-dead column. Two timing rules stack:\n\n1. It runs at least one full release after the deploy that stopped writing the column. Dropping a column in the same release as the deploy that stops writing it is forbidden \u2014 minimum one release gap.\n2. Like every migration, it runs before that release's application code deploys, never after.\n\nSo the sequence is: release N stops writing the column \u2192 release N+1's migration drops it \u2192 release N+1's app code deploys afterward.\n\nTwo adjacent constraints that usually matter when you're scheduling it:\n- The exception path (a same-release drop) needs the database lead's written approval.\n- The migration must pass against a production snapshot taken within the last 7 days, not a synthetic schema. Migrations are forward-only \u2014 there's no down-migration, a bad one is fixed by a new migration, which is the reason the one-release gap exists at all.\n\nIf you meant a different \"cleanup migration\" (e.g. a data backfill cleanup), say the word \u2014 nothing under that name is recorded on this machine.\n",
+   "dynamic_answer": "Cleanup (the \"contract\" migration: dropping old columns/tables) runs **last, in a separate later release** \u2014 never in the same deploy as the expand migration.\n\nSpecifically, from my notes (~/.hermes/memories/cx_c3_deploy_ordering.md):\n\n- Step 6 of the deploy order: only *after* migrations \u2192 canary (1 instance/5%, hold 20 min) \u2192 50% (hold 10 min) \u2192 100%, does the cleanup migration run.\n- \"Step 6 must never happen in the same deploy as step 1. Cleanup is always a separate, later release.\"\n- Minimum one-release gap: dropping a column is forbidden in the same release as the deploy that stops writing it (cx_c1_expand_contract.md, policy of 2026-07-11).\n- If the canary fails at the 20-min hold, roll back the code but *not* the migration \u2014 it's already backward-compatible, and rolling it back breaks old code still running elsewhere.\n"
+  },
+  {
+   "fact": "c4_access_control",
+   "probe": "headline",
+   "question": "who can read production data?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have an answer to that, and I don't want to invent one.\n\nWhat I checked: my persistent memory (holds two policies \u2014 the expand/contract database migration policy from 2026-07-11 and the incident severity definitions from 2026-08-20; neither says anything about read access to production data), session history (only three recent sessions, all about migrations/canary timing), and the files on this machine under /root (nothing but the hdm repo, unrelated).\n\nClosest thing I do have: the migration policy requires \"the database lead's written approval\" for the two migration exceptions. That's about schema changes, not about who may read production data, so I'm not going to stretch it into an answer.\n\nIf you point me at the source \u2014 a policy doc, a wiki URL, an access-control config, or a repo path \u2014 I'll read it and answer from that. If you meant a live system (e.g. \"who has read grants on this prod database\"), tell me which host/connection to check and I'll query the grants directly.\n",
+   "dynamic_answer": "From your production access rules (effective 2026-06-01, cx_c4_access_control.md):\n\n- Any engineer \u2014 read access is open to all engineers, but only through the read-replica. Direct connections to the primary are blocked by network policy; getting to the primary needs a stated reason plus a ticket.\n- Contractors \u2014 no production access of any kind, including read. They work against a sanitised staging dataset refreshed weekly.\n- Everyone else \u2014 no read path is defined for non-engineers, so the default is no access.\n\nRelated, since they usually come up together: write access requires the `prod-writers` group (re-requested every 90 days with justification, no auto-renewal), and emergency access is the `ops-emergency` break-glass account, which pages the on-call security engineer and requires a written account within 24 hours.\n"
+  },
+  {
+   "fact": "c4_access_control",
+   "probe": "detail: 90 days, must re-request",
+   "question": "how long does prod write access last?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have a recorded answer for that \u2014 nothing in my memory or in any local file defines how long production write access lasts. I checked memory, files under /root, the Hermes skills/docs, and past sessions; the only prod-adjacent policies I hold are the migration expand/contract rules (DB lead's written approval required for exceptions) and the incident severity definitions. Neither mentions write-access duration, and I'm not going to guess a number.\n\nWhere is it written down \u2014 a runbook, an access-policy doc, an IAM config? Point me at it and I'll pull the actual duration (and note any renewal/expiry mechanism), or store it in memory if you want it available every session.\n",
+   "dynamic_answer": "90 days.\n\nPer cx_c4 (production access rules, effective 2026-06-01): write access requires the `prod-writers` group, and membership is granted for 90 days, then must be re-requested with justification \u2014 it does not auto-renew.\n\nRelated limits in the same file: read access is any engineer but read-replica only (primary needs a ticket); break-glass (`ops-emergency`) pages on-call security automatically and needs a written account within 24 hours, with three unaccounted uses in a quarter freezing the account; contractors get no production access at all.\n\nFile: /root/.hermes/memories/cx_c4_access_control.md\n"
+  },
+  {
+   "fact": "c4_access_control",
+   "probe": "detail: pages security engineer, 24h writeup",
+   "question": "what happens when someone uses the break-glass account?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have anything on that. Nothing in my memory or any notes covers a break-glass account \u2014 my only stored policies are the DB migration expand/contract rule and the incident severity definitions, and neither mentions break-glass. A filesystem search turns up the phrase only in Hermes's own SECURITY.md, about an operator decision during Hermes setup, which is unrelated to any account of yours.\n\nSo I can't tell you what the procedure is \u2014 provisioning, who's allowed to use it, alerting, post-use review, or credential rotation. I'd be making it up.\n\nIf you point me at where it's defined (a runbook, wiki page, Confluence/Notion doc, repo file, or even a screenshot), I'll read it and give you the actual answer. If you tell me the effective procedure, I'll store it so it's available next time.\n",
+   "dynamic_answer": "From your notes (~/.hermes/memories/cx_c4_access_control.md, production access rules effective 2026-06-01):\n\nUsing the break-glass account \u2014 the `ops-emergency` account \u2014 triggers two things automatically:\n\n1. It pages the on-call security engineer.\n2. It requires a written account of what was done, within 24 hours.\n\nAccountability rule: three unaccounted uses in a quarter freeze the account until review.\n"
+  },
+  {
+   "fact": "c4_access_control",
+   "probe": "detail: 3 unaccounted -> freeze",
+   "question": "what happens if break-glass is used too many times unaccounted?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "Still nothing on it \u2014 this is the second time it's come up, and I have no source for your break-glass policy.\n\nWhat I checked: my memory (only the expand/contract migration rule and the incident severity definitions \u2014 neither mentions break-glass), `/root`, `/root/.hermes`, `/srv`, `/opt`, `/home`, `/tmp`, `/etc` for any runbook/policy/access doc, and past sessions. The only occurrences of \"break-glass\" anywhere on this box are in my own session logs and in Hermes's own SECURITY.md (\u00a73.2, about an operator setup trade-off, unrelated to any account of yours). No runbook, no policy file, no note.\n\nSo I can't tell you what happens on repeated unaccounted use \u2014 escalation path, whether the account gets rotated/disabled, who reviews the logs, or the threshold that counts as \"too many.\" That's your org's control, and I'd be inventing it. (Separately, if this showed up as a question from a doc you're writing: I won't draft policy text as if it were your effective rule.)\n\nTwo ways to get a real answer:\n- Point me at the source \u2014 runbook, wiki/Confluence/Notion page, repo file, ticket, or a screenshot \u2014 and I'll read it.\n- Or just tell me the rule and I'll store it in memory alongside the other two. Then next time this question lands, it gets answered instead of deflected.\n\nThe prior session asked essentially this same question and dead-ended the same way: @session:default/20260919_161545_02e485\n",
+   "dynamic_answer": "Per the production access rules (cx_c4_access_control.md, effective 2026-06-01):\n\nBreak-glass = the `ops-emergency` account. Every use pages the on-call security engineer automatically and requires a written account of what was done within 24 hours. Three unaccounted uses in a quarter freezes the account until review \u2014 so it's not a per-incident penalty, it's a quarterly budget of three misses before the account is locked pending review.\n\nRelated constraints in the same doc, in case they matter: write access needs `prod-writers` membership (granted 90 days, no auto-renew, re-request with justification); read access is read-replica only, primary needs a ticket and a reason; contractors get no production access at all, not even read.\n"
+  },
+  {
+   "fact": "c4_access_control",
+   "probe": "detail: no, sanitised staging only",
+   "question": "can contractors access production?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "No \u2014 I have nothing that says either way. There is no contractor-access policy recorded anywhere I can reach, and I won't invent one.\n\nWhat I checked:\n- Persistent memory: exactly two entries \u2014 the expand/contract database migration policy (2026-07-11) and the incident severity definitions (2026-08-20). Neither mentions contractors, vendors, third parties, or production access grants.\n- Files on this machine: searched /root (including hidden dirs), /home, /srv, /opt, /tmp, /etc for \"contractor\", \"production access\", \"third-party\"/\"vendor\". The only hits are unrelated library code and synthetic example docs in /root/hdm (that repo's examples are explicitly fictional).\n- Session history: four prior sessions asked the same family of questions (\"who can read production data?\", \"how long does prod write access last?\", \"what happens when someone uses the break-glass account?\") \u2014 all ended with no source found. Nothing in the transcript log either (the one \"contractor\" hit in agent.log is this conversation).\n\nThe nearest thing I do hold is the migration policy's requirement for \"the database lead's written approval\" on two schema-change exceptions. That's about schema changes, not about who may touch production, so it doesn't answer your question.\n\nWhere is it written down \u2014 an access-control policy doc, an IAM/SSO group config, a contractor onboarding runbook? Give me the path or URL and I'll read it and answer from the actual text, and store the rule in memory if you want it available every session. If instead you want to know what's true today on a live system, tell me which host/IdP to query and I'll check the group memberships and grants directly.\n",
+   "dynamic_answer": "No. Per the access-control policy (effective 2026-06-01): contractors have no production access of any kind, including read. They work against a sanitised staging dataset refreshed weekly.\n\nFor contrast, the same policy gives everyone else only:\n- Read: any engineer, read-replica only (primary connections blocked by network policy).\n- Write: `prod-writers` group, granted 90 days and re-requested with justification \u2014 no auto-renew.\n- Break-glass: `ops-emergency` account, pages on-call security automatically, written account required within 24h; three unaccounted uses in a quarter freezes it.\n"
+  },
+  {
+   "fact": "c5_retention_matrix",
+   "probe": "headline",
+   "question": "how long do we keep audit logs?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have that one. Nothing in my memory or in the files on this machine states an audit-log retention period.\n\nWhat I do have saved is two policies, neither of which covers it:\n\n- Database migration policy (expand/contract, one-release gap, forward-only migrations) \u2014 silent on logging.\n- Incident severity definitions (Sev-1/2/3, paging, postmortem windows) \u2014 silent on logging.\n\nSearches for \"audit log\" / \"retention\" across /root and the Hermes config turned up nothing relevant \u2014 the only hits are unrelated (a Java memory note, Node's `--permission-audit` docs, skill prose).\n\nIf you have the policy doc (a wiki page, compliance spreadsheet, or runbook), point me at it or paste the text and I'll save the retention rule to memory so it's available next time. Otherwise tell me the number and I'll record it.\n",
+   "dynamic_answer": "Audit logs: 7 years, immutable WORM storage \u2014 no exceptions, no customer deletion honored (legal holds a standing exemption). Source: ~/.hermes/memories/cx_c5_retention_matrix.md (last revised 2026-09-01).\n\nRelated classes from the same matrix, in case you meant one of them:\n- Customer PII: deleted within 30 days of account closure or on a verified erasure request; backups may lag up to 90 days.\n- Payment records: 7 years (tax law), overrides deletion requests.\n- Metrics/traces: 13 months, rolled up to 1-minute resolution after 30 days; raw traces dropped at 30 days.\n"
+  },
+  {
+   "fact": "c5_retention_matrix",
+   "probe": "detail: no, legal exemption",
+   "question": "can a customer get their data deleted from audit logs?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have a policy on that. I checked my notes and the filesystem: my stored policies are the database migration rule (expand/contract, agreed 2026-07-11) and the incident severity definitions (revised 2026-08-20) \u2014 neither says anything about audit logs, retention, or customer data-deletion requests. Nothing in /root or the Hermes config mentions an audit-log deletion procedure either, and there's no prior session where it came up.\n\nSo the honest answer is: I can't tell you the rule here, and I'm not going to guess one \u2014 audit-log retention is exactly the kind of thing where the answer differs per jurisdiction and per contract, and a made-up \"yes, within 30 days\" would be worse than no answer.\n\nTwo ways I can help:\n- If you point me at the source (a compliance/DPA doc, a runbook, a repo path, a link), I'll read it and give you the actual rule.\n- If you want my general reasoning on the trade-off (subject-access/deletion rights vs. the fact that audit logs are usually the exception carved out for security and legal-hold reasons), say so and I'll lay it out as opinion, clearly labelled.\n\nWant me to record the policy once you find it?\n",
+   "dynamic_answer": "No \u2014 per the retention matrix (memory file cx_c5_retention_matrix.md, revised 2026-09-01):\n\nAudit logs: 7 years, immutable (WORM storage), no exceptions, and no customer deletion is honoured \u2014 legal holds a standing exemption for these.\n\nSo an erasure request never touches audit logs. What it does reach:\n- Customer PII: deleted within 30 days of account closure, or immediately on a verified erasure request \u2014 but backups are exempt from the 30-day clock and can hold it up to 90 days, which is disclosed in the privacy policy.\n- Payment records: 7 years, tax-law requirement \u2014 explicitly overrides a deletion request; tell the customer why.\n- Metrics/traces: 13 months, rolled up to 1-minute resolution after 30 days; raw traces dropped at 30 days.\n\nIf a customer pushes back, the answer is \"audit logs are legally exempt and immutable; PII is erased on request, with up to 90 days of residue in backups.\"\n"
+  },
+  {
+   "fact": "c5_retention_matrix",
+   "probe": "detail: backups exempt, expire in 90 days",
+   "question": "what happens to PII in backups on an erasure request?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "No policy doc for this exists in the workspace \u2014 I searched /root and there's no erasure/PII/retention document, and no prior session covers it. So this is the general answer, not a quote of your policy.\n\nShort version: the live record gets deleted; backups do not get surgically rewritten. Instead the data is suppressed in the live estate and either excluded at restore time or allowed to age out on the backup's own retention cycle. Regulators (ICO/EDPB reading of GDPR Art. 17(3)(b)) accept this \u2014 but only if you can demonstrate the balance was deliberate.\n\nWhat that means in practice:\n\n- Suppression, not silence. You keep an erasure ledger (subject key or hash) that restore tooling reads. Every restore replays it and drops or re-anonymises those rows before the data re-enters production. Skipping this is the classic failure: an erased subject resurrects the first time you restore, and that's the finding auditors look for.\n- Crypto-shredding. For immutable or offsite media (WORM, object-lock buckets, tape, cold archive), destroying a per-subject or per-period encryption key is often the only feasible mechanism. It counts as erasure if the key is genuinely gone \u2014 and if you're not keeping per-subject keys, you're telling the regulator the data is unrecoverable in principle, which needs to be true.\n- Bounded retention. \"Erased at next expiry\" is only defensible if expiry exists and is enforced. Rollover windows that never actually expire are the usual gap.\n- Derived copies count. Warehouse, search indexes, caches, event-stream/tiered storage, ML feature stores and training sets, exports, DR replicas, analytics snapshots. An erasure that lands in the primary DB and nowhere else is the practical hole.\n- Overrides. Legal hold, tax and financial-record retention beat erasure. Document the exemption and its end date rather than pretending the request was fully honoured.\n- Evidence. Log the request, the action taken, the suppression key, and a restore-test proving suppression works. When you respond to the subject, say plainly what remains in backups and until when.\n\nThe one thing that is not defensible: indefinite backup retention whose real purpose is to avoid doing erasure. \"Technically infeasible\" is a valid argument; \"inconvenient\" is not.\n\nIf you want, I can draft the policy section (retention windows, suppression-ledger design, restore-runbook step) in the same style as your migration and incident-severity notes.\n",
+   "dynamic_answer": "From the retention matrix (last revised 2026-09-01):\n\nErasure request \u2192 customer PII is deleted immediately from live systems. Backups are explicitly exempt from that immediate clock: backup copies must expire within 90 days, so an erasure request can leave the data sitting in backups for up to 90 days. That gap is disclosed in the privacy policy.\n\nTwo carve-outs that survive an erasure request entirely:\n\n- Payment records \u2014 7 years, required by tax law. Overrides a deletion request; the customer is told why.\n- Audit logs \u2014 7 years in immutable WORM storage, no exceptions, no customer deletion honoured (standing legal exemption).\n\nSo a \"verified erasure\" is: live PII gone now, backup PII gone \u226490 days, payment + audit data retained regardless. If you're writing customer-facing copy, the honest phrasing is \"up to 90 days in backups, and payment/audit records are retained as legally required\" \u2014 not \"deleted immediately.\"\n\nSource: ~/.hermes/memories/cx_c5_retention_matrix.md\n"
+  },
+  {
+   "fact": "c5_retention_matrix",
+   "probe": "detail: 13 months, raw dropped at 30 days",
+   "question": "how long do we keep metrics and traces?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have that \u2014 no retention policy for metrics or traces is recorded anywhere I can reach.\n\nWhat I checked:\n- Persistent memory: only two entries, both unrelated (database migration expand/contract policy; incident severity definitions). Neither mentions observability retention.\n- Session history: empty \u2014 zero past sessions in this profile, so no prior conversation to recall.\n- Filesystem: nothing. A content search across / for retention/observability terms (Datadog, Prometheus, Grafana, Tempo, Jaeger, TTL, \"retain N days\") turned up only unrelated Hermes/OS source files and an incidental \"retention cycles\" line in a Java GC memory example.\n\nSo I can't give you a number without inventing one, which I won't do.\n\nIf you tell me the actual policy (e.g. \"metrics 15 months, traces 30 days\") I'll save it to memory so it's answered instantly next time. Otherwise, point me at where it lives \u2014 a runbook, the observability repo's config (retention is often set in the Prometheus/Tempo config rather than a doc), or a wiki page \u2014 and I'll read it and confirm.\n",
+   "dynamic_answer": "Metrics and traces: 13 months total, with rollup after 30 days to 1-minute resolution. Raw traces are dropped entirely at 30 days (from ~/.hermes/memories/cx_c5_retention_matrix.md, last revised 2026-09-01).\n"
+  },
+  {
+   "fact": "c6_oncall_escalation",
+   "probe": "headline",
+   "question": "what's the escalation path for on-call?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have one. No on-call escalation path exists in anything I can reach.\n\nWhat I checked: my stored notes (only two entries \u2014 the expand/contract migration rule and the incident severity definitions, neither of which describes a contact chain or rotation), past sessions (plenty of traffic about sev-1 notification timing, nothing defining an escalation path), and the filesystem \u2014 grepped /root, /srv, /opt, /etc, /home, /tmp, /var and searched for runbook/oncall/escalation files by name. Every hit was third-party library noise. There's no runbook or pager policy on this box.\n\nWhat I do have is the paging/notification requirements tied to severity, which is adjacent but not the same thing (revised 2026-08-20):\n\n- Sev-1: page immediately, 24/7; incident commander in place within 10 minutes; executive notification within 30 minutes.\n- Sev-2: page during business hours only; commander required, no executive notification.\n- Sev-3: ticket only, no page. Three sev-3s in a month escalates to a sev-2 review.\n\nThat tells you when a page fires and who has to be involved \u2014 not the escalation ladder itself: no tiers (primary/secondary), no timeouts before bumping, no names, no rotation, no \"if the IC doesn't respond in N minutes, then\u2026\" rule. I'd be inventing all of that.\n\nIf you give me the actual policy (or point me at the runbook, wiki page, or pager config), I'll read it and store it in memory next to the other two \u2014 then this question gets answered instead of deflected. Related dead-end from earlier today, same shape: @session:default/20260919_161609_12817d\n",
+   "dynamic_answer": "On-call escalation path (from your notes, /root/.hermes/memories/cx_c6_oncall_escalation.md):\n\n  t=0       Primary on-call paged \u2014 must respond within 5 minutes\n  t=5 min   Unacknowledged \u2192 secondary is paged\n  t=15 min  Still unacknowledged \u2192 engineering manager is paged\n  t=30 min  \u2192 CTO is paged, and the incident is automatically declared sev-1\n            regardless of its original appearance\n\nAdjacent rules in that doc:\n\n  Handover at 10:00 and 22:00 local, and handover must include open\n  investigations, not just active incidents.\n  Fatigue: no one takes primary more than 7 consecutive days; after any\n  sev-1 that ran past 4 hours, responders get the next business day off\n  without asking.\n\nWorth flagging: the 30-minute auto-sev-1 interacts with your severity definitions (cx_c2_incident_severity.md) \u2014 sev-2 is \"page during business hours only,\" so an unacknowledged sev-2 crossing 30 minutes silently becomes sev-1 and pulls in executive notification within 30 minutes and a 5-business-day blameless postmortem. That's the trap in this pairing.\n"
+  },
+  {
+   "fact": "c6_oncall_escalation",
+   "probe": "detail: 5 minutes",
+   "question": "how long before the secondary on-call is paged?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have that one. My stored incident policy (revised 2026-08-20) covers severity definitions, paging windows, IC and exec notification timings \u2014 Sev-1: page immediately 24/7, IC within 10 min, exec within 30 min; Sev-2: business-hours page, commander but no exec notification; Sev-3: ticket only with the three-in-a-month escalation rule \u2014 but it says nothing about a secondary on-call rotation or when the secondary gets paged.\n\nI searched /root as well; the only matches are my own memory notes, no runbook or escalation doc on disk. So I can't give you a number without inventing one.\n\nIf you tell me the rule I'll add it to the notes; otherwise point me at the runbook (path or URL) and I'll pull the escalation ladder out of it.\n",
+   "dynamic_answer": "5 minutes. The primary has 5 minutes to acknowledge; if unacknowledged at the 5-minute mark, the secondary is paged. If it's still unacknowledged at 15 minutes the engineering manager is paged, at 30 minutes the CTO \u2014 and it's auto-declared sev-1 at that point.\n\n(Source: /root/.hermes/memories/cx_c6_oncall_escalation.md)\n"
+  },
+  {
+   "fact": "c6_oncall_escalation",
+   "probe": "detail: CTO + auto sev-1",
+   "question": "what happens at 30 minutes unacknowledged?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have anything defining an \"unacknowledged at 30 minutes\" rule. I checked my notes and past sessions \u2014 no match.\n\nThe only 30-minute threshold I have is in the incident severity policy, and it's a different thing: for Sev-1, executive notification must go out within 30 minutes of the incident being declared. That's a notification deadline, not an acknowledgment/escalation timer.\n\nIf you meant that: at 30 minutes for a Sev-1, the requirement is exec notification \u2014 commander should already have been named by 10 minutes, and paging is immediate, 24/7.\n\nIf you have a source doc (runbook, on-call policy) that defines an ack timeout, point me at it or paste the relevant section and I'll work from that instead of guessing.\n",
+   "dynamic_answer": "From the on-call escalation policy (cx_c6_oncall_escalation.md):\n\nAt 30 minutes unacknowledged, the CTO is paged \u2014 and at that point the incident is automatically declared sev-1 regardless of what it looked like when it first came in.\n\nThe full chain:\n- 5 min unacknowledged \u2192 secondary on-call paged\n- 15 min unacknowledged \u2192 engineering manager paged\n- 30 min unacknowledged \u2192 CTO paged + automatic sev-1\n\nRelated but separate 30-minute clock, from the severity definitions (cx_c2): a sev-1 requires executive notification within 30 minutes of declaration \u2014 which, after a 30-minute unacked page, starts once the auto-sev-1 kicks in.\n\nHandover is at 10:00 and 22:00 local, and must include open investigations, not just active incidents.\n"
+  },
+  {
+   "fact": "c6_oncall_escalation",
+   "probe": "detail: 7 days max",
+   "question": "how many consecutive days can someone be primary?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "I don't have that one. Nothing in my stored notes or in past sessions defines a limit on consecutive \"primary\" days.\n\nThe policies I do hold are:\n- the expand/contract database migration policy (one-release backward compatibility, migration before app deploy, forward-only rollback), and\n- the incident severity definitions (Sev-1/2/3 paging, commander and exec notification timings, postmortem requirements) \u2014 revised 2026-08-20.\n\nNeither mentions on-call primary rotations. If you mean an on-call \"primary\" rotation cap, point me at the source doc (or the platform's schedule) and I'll check it; otherwise tell me the intended limit and I'll write it up and remember it.\n",
+   "dynamic_answer": "7 consecutive days.\n\n\"Fatigue rule: nobody takes primary for more than 7 consecutive days\" (from the on-call escalation policy). Related: after any sev-1 that ran past 4 hours, the responders get the next business day off without needing to ask.\n"
+  },
+  {
+   "fact": "c6_oncall_escalation",
+   "probe": "detail: next business day off after 4h+ sev-1",
+   "question": "what's the rule after a long sev-1?",
+   "native_stored": false,
+   "native_recalled": false,
+   "dynamic_recalled": true,
+   "native_answer": "Nothing in my notes or past sessions defines a \"long\" sev-1 rule \u2014 no IC relief/rotation after N hours, no extended-incident clause.\n\nWhat I do have as the post-sev-1 rule: a written, blameless postmortem within 5 business days, reviewed in the weekly engineering meeting. That's duration-independent \u2014 it applies to any sev-1, short or long.\n\nIf you're working from a runbook or on-call policy that has a duration-based rule (relief rotation, exec re-notification, a re-declare threshold), point me at it and I'll work from the actual text instead of guessing.\n",
+   "dynamic_answer": "Rule is in the on-call escalation note (cx_c6_oncall_escalation.md), under \"Fatigue rule\":\n\nAfter any sev-1 that ran past 4 hours, the responders get the next business day off \u2014 no need to ask.\n\nSame note also caps primary on-call at 7 consecutive days. The sev-1 severity definitions themselves (cx_c2_incident_severity.md) only cover postmortem timing: written postmortem within 5 business days, blameless, reviewed in the weekly engineering meeting.\n"
+  }
+ ]
+}

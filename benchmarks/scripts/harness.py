@@ -75,6 +75,27 @@ def dk(sub: str, timeout: int = 600, check: bool = True) -> str:
     return sh(f"{DOCKER} {sub}", timeout=timeout, check=check)
 
 
+def load_results(path: str) -> list[dict]:
+    """Load a results file, tolerating both the stamped object shape
+    ({"_benchmark_conditions": {...}, "results": [...]}) and a bare list."""
+    import json as _json
+    data = _json.load(open(path))
+    if isinstance(data, dict) and "results" in data:
+        return data["results"]
+    if isinstance(data, dict):
+        return [data]
+    return data
+
+
+def benchmark_conditions(path: str) -> dict:
+    """Return the recorded run conditions (model, provider, versions) if present."""
+    import json as _json
+    data = _json.load(open(path))
+    if isinstance(data, dict):
+        return data.get("_benchmark_conditions", {})
+    return {}
+
+
 def strip_meta(text: str) -> str:
     """Drop Hermes CLI session banners so only the answer body remains."""
     return "\n".join(

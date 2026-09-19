@@ -158,5 +158,14 @@
    "native_answer": "I don't have this one. There's no refund policy in my memory, no note on disk, and no prior session where we discussed it \u2014 so I'm not going to guess at thresholds or approvers.\n\nWhat I do have is adjacent billing mechanics (not a refund policy):\n- Invoices run on the 3rd business day of the month, not the 1st.\n- Upgrade proration is per-day over a 30-day month, rounded DOWN in the customer's favour.\n- The legacy-2019 plan is grandfathered at $19/mo forever, so downgrading off/around it isn't a simple refund case.\n\nIf you point me at the source \u2014 a policy doc, wiki/Notion page, or the billing runbook \u2014 I'll pull the actual process and approval ladder from it. If you'd rather I record it once you tell me, I can save it to memory so next time it's one line.\n",
    "dynamic_answer": "Short version: only the approval side is actually documented \u2014 the end-to-end refund *procedure* isn't recorded anywhere I can find.\n\nWhat's on file (billing notes):\n\n- Agents can issue refunds up to $250 with no approval.\n- Anything above $250 requires the billing-lead role.\n\nThat's the whole refund entry \u2014 the billing notes (in my memory index and the identical copy at /tmp/billing-rules.md) say nothing about how a refund is requested, who initiates it, the timeline, the payment method used, or partial vs. full refunds.\n\nI looked further before answering, since the index is a curated subset: the other seven topic files (deploy, incidents, kafka, security/keys, api-versioning, backup, flags), session history (no matching past conversations), and a content search for \"refund\" across the filesystem \u2014 the only hits are the billing notes and a test file in the Hermes install, nothing about a refund workflow.\n\nSo if you need the actual process \u2014 intake channel, evidence required, refund window, how billing-lead sign-off is recorded \u2014 it lives somewhere I don't have access to. Tell me where (ticket system, Confluence, the finance team's runbook) and I'll pull it in; or if you just want the thresholds, those are settled: $250 self-serve, above that the billing-lead approves.\n"
   }
- ]
+ ],
+ "_benchmark_conditions": {
+  "model": "deepseek-chat",
+  "provider": "deepseek",
+  "hermes_version": "0.21.3",
+  "native_cap_chars": 2200,
+  "date": "2026-09-19",
+  "sessions": "one fresh session per question; session state wiped before install",
+  "note": "Model is part of the result: deepseek-chat prefers local filesystem evidence over injected memory, which inflates dynamic's failure count. See benchmarks/README.md."
+ }
 }

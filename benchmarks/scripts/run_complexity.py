@@ -24,8 +24,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import (adjudicate, ask, assert_clean, clean_container,
-                     install_dynamic, install_native, score, strip_meta)
+from harness import (adjudicate, ask, assert_clean, benchmark_conditions,
+                     clean_container, install_dynamic, install_native, load_results,
+                     score, strip_meta)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.join(HERE, "..", "fixtures", "complex_facts.json")
@@ -69,7 +70,14 @@ def main() -> int:
     if args.verify_only:
         # Read the committed verdicts; do not re-derive from the mechanical score
         # (see the note in run_cohort50.py).
-        rows = json.load(open(os.path.join(args.out, "answers-adjudicated.json")))
+        path = os.path.join(args.out, "answers-adjudicated.json")
+        cond = benchmark_conditions(path)
+        if cond:
+            print(f"run conditions: model={cond.get('model')} "
+                  f"provider={cond.get('provider')} "
+                  f"hermes={cond.get('hermes_version')} "
+                  f"date={cond.get('date')}")
+        rows = load_results(path)
         for r in rows:
             r.setdefault("id", r.get("fact"))
         tally = {

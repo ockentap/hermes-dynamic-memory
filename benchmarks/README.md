@@ -8,6 +8,44 @@ No claim in this repo should be taken on trust. Every figure below can be
 re-derived from the fixtures and scripts here, or disputed by reading the raw
 transcripts.
 
+## Model and versions used
+
+All benchmarks in this repo were run under the same conditions. These are part of
+the result, not incidentals — a different model would move the numbers, and the
+`deepseek-chat` finding below is specific to this one.
+
+| | |
+|---|---|
+| **Model** | `deepseek-chat` |
+| **Provider** | `deepseek` |
+| **Hermes version** | v0.21.3 |
+| **Keeper images** | `hermes-native:0.21.3`, `hermes-dynmem:1.4.3` |
+| **Native memory cap** | 2,200 characters |
+| **Date** | 2026-09-19 |
+| **Sessions** | one fresh session per question/probe; session state wiped before install |
+
+Verify the model in any container before trusting a run:
+
+```bash
+docker exec clean-native bash -c 'grep -A2 "^model:" /root/.hermes/config.yaml'
+# model:
+#   default: deepseek-chat
+#   provider: deepseek
+```
+
+**Two model-dependent caveats**, both recorded in the individual write-ups:
+
+- `deepseek-chat` shows a strong preference for **local filesystem evidence over
+  injected memory**. The clearest case is `pref_shell`: asked which shell the user
+  uses, it answered `bash` by inspecting the container's own shell instead of
+  reading the stored preference. This inflates dynamic's failure count.
+- `deepseek-chat` already knows general facts like Kafka and Postgres, so early
+  probes measuring recall of *well-known* facts measured the model, not the
+  memory. The fixtures were rewritten to use facts the model cannot already know
+  (`docs/benchmark.md`).
+
+Results on other models are welcome — the fixtures and scripts are model-agnostic.
+
 ```
 benchmarks/
   fixtures/                     the memories fed to both systems
@@ -105,7 +143,7 @@ asserted the fact, and read the disagreements.
 
 - **n=1 per probe.** No repeats, no variance reported. `pref_shell` and
   `env_terminal` could be noise.
-- **One model, one provider.** `deepseek-flash` shows a strong preference for local
+- **One model, one provider.** `deepseek-chat` shows a strong preference for local
   filesystem evidence over injected memory, which likely inflates dynamic's
   failure count (`pref_shell` answered from the container's own shell).
 - **Synthetic user, synthetic facts.** Real memory is messier and less atomic.

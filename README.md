@@ -4,6 +4,76 @@
 
 A production-tested pattern for personal agent memory — no vector database, no embedding calls, no retrieval infrastructure. Just an index file and a convention.
 
+---
+
+## Benchmark: complex memories
+
+Most memory benchmarks count how many facts survive. That is the easy question. The
+hard one is whether **structured, detailed memories** survive — a migration policy
+with its exceptions and named approver, an incident-severity definition with timing
+thresholds, a deploy order with canary gates. These are the memories a lossy summary
+destroys while keeping the headline.
+
+Six such memories, each probed for every detail it contained. 30 probes per system.
+Clean containers, one fresh session per question, memory as the only possible source.
+
+| | Native memory | Dynamic memory |
+|---|---|---|
+| detail probes answered correctly | **11 / 30** | **30 / 30** |
+| complex memories held | 2 of 6 | **6 of 6** |
+| resident cost to hold them | 1,615 chars | **503 chars** |
+
+### Native memory does not degrade — it cuts off
+
+<img src="docs/charts/detail-recall.svg" alt="Detail recall: native 11/30, dynamic 30/30" width="640">
+
+Native kept 2 of 6 complex memories and **refused the other 4 outright**. On the two
+it held, it recalled **every detail — 11 of 11**, including the named approver and
+the 7-day snapshot rule. On the four it could not store, it recalled **0 of 19**.
+
+Not degraded. Zero. A memory is either fully present or entirely absent, and which
+one depends only on the order it arrived in.
+
+### Capacity at an equal resident budget
+
+<img src="docs/charts/capacity.svg" alt="Complex-memory capacity: native 2.7, dynamic 16.8" width="640">
+
+With 12 keywords per entry — a **stated assumption**, since the real index in this
+benchmark averaged 7 keywords and 82 chars per line. The 12-keyword model gives
+~131 chars per index line and is therefore the conservative case:
+
+| | complex memories in 2,200 chars |
+|---|---|
+| Native memory | **2.7** (measured) |
+| Dynamic memory, 12 keywords/entry | **16.8** (projected) |
+| Dynamic memory, as actually measured (7 kw/entry) | **26.8** |
+| | **6.2× more** at the conservative 12-keyword rate |
+
+### Resident cost
+
+<img src="docs/charts/resident-cost.svg" alt="Resident memory-block characters vs memories held" width="640">
+
+Native's resident block is flat-capped at 2,200 chars from the 4th memory onward —
+adding more memories adds cost with no added capability. Dynamic's index grows at
+~130 chars per memory and stays inside the same budget until 16.
+
+### What this means
+
+Native's limit is **count, not depth**. It holds a few memories perfectly and loses
+everything past that, with no way to prioritise — the migration policy survived only
+because it was written first. Dynamic memory trades a keyword lookup for the ability
+to keep far more, in full detail, at a fraction of the resident cost.
+
+**Read the full method, including limitations:** [`docs/complexity.md`](docs/complexity.md) ·
+[`docs/cohort-50.md`](docs/cohort-50.md) · [`docs/compression.md`](docs/compression.md)
+
+Raw transcripts for every probe are committed alongside each write-up, so the
+scoring can be audited rather than trusted.
+
+---
+
+## The pattern
+
 ```markdown
 # Memory Index — keyword,keyword,keyword → file.md
 !!how,write,memory,format,keyword,entry,template → how-to-write-memories.md

@@ -73,6 +73,33 @@ Three native answers initially scored as passes on refused facts and were
 Without that correction native would have scored 14/30 instead of 11/30, and the
 "0/19" would have read "3/19". Raw transcripts are committed.
 
+## Capacity projection (for the README charts)
+
+The capacity figures used in the README are partly a **projection**, and the basis
+matters:
+
+| | chars per entry | complex memories in 2,200 chars |
+|---|---|---|
+| native (measured) | 808 | **2.7** |
+| dynamic, 12 keys/entry (projected) | 131 | **16.8** |
+| dynamic, as actually built (7 keys/entry, measured) | 82 | **26.8** |
+
+The 12-keyword figure is a **stated upper bound**, not a measurement. The real
+index built for this benchmark averaged **7 keywords and 82 chars per line**:
+
+```
+88 chars: migration,schema,rollback,backward-compatible,expand,contract → cx_c1_...
+77 chars: severity,sev,incident,escalation,postmortem,page → cx_c2_incident_...
+84 chars: deploy,canary,rollout,promote,threshold,rollback,ordering → cx_c3_depl...
+```
+
+Average measured keyword length is 7.6 chars, and the 12-keyword line assumes:
+`12 x 7.6` keywords `+ 11` commas `+ 4` for the arrow `+ 25` filename = **131 chars**.
+
+So the README's **6.2x** is the conservative claim. At the density actually
+measured it would be **9.9x**. The lower figure is used deliberately: it holds even
+if every entry uses the maximum keyword allowance.
+
 ## Limitations
 
 1. **n=1 per probe.** No repeats.

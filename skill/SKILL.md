@@ -181,10 +181,21 @@ If the transcript shows `search_files` instead of `read_file` on the expected fi
 
 ## Pitfalls
 
-### `§` is banned
-It was meant as a paragraph separator. It caused agents to think "paragraphs of text go here" and write prose. Zero `§` characters belong in the index.
+### `§` has no role — a newline means a new entry
 
-**However:** Hermes' own memory store writes `\n§\n` as an entry delimiter between entries in some code paths. If you see `§` lines appearing on disk, that is the runtime, not the agent — and it means the newline-delimited assumption in the plugin/validator no longer matches reality. Investigate before "fixing" it, because the replace-guard's safety depends on which delimiter model is actually in force.
+The format is **newline-delimited**: one entry per line. A newline *is* the entry boundary, so no separator token is needed or wanted, and `§` must never appear as content.
+
+**But Hermes' built-in memory store disagrees, and this is not optional.** `tools/memory_tool_store.py` hardcodes `ENTRY_DELIMITER = "\n§\n"` and joins entries with it on every write. So any file the `memory` tool has written more than once will contain a bare `§` line between entries, whether you want it or not.
+
+The correct handling is to **recognise and ignore** those lines, not to fight them:
+
+- `verify_index.py` skips them and reports how many it ignored.
+- The plugin never treats one as an entry — a `replace` targeting a separator line is refused, because deleting the runtime's entry boundary is not an index edit.
+- Nothing else in the format depends on them. The rule "one line per topic file" is enforced on the arrow lines themselves.
+
+**Do not** try to strip them inside the hook: the join happens *after* the hook returns, in the store's write path, so a plugin cannot prevent them. Adjust your tooling to tolerate them instead.
+
+If you see a `§` line and the validator reports `0 separator line(s) ignored`, something else is writing the file — investigate rather than deleting the line.
 
 ### Don't lower the char cap to fix compliance
 The problem is never the cap size — it is prose leaking into the index. Fix the write path, not the limit.

@@ -104,6 +104,30 @@ def _is_arrow_line(text: str) -> bool:
     return bool(ARROW_LINE_RE.match(text.strip()))
 
 
+# Hermes' built-in memory store (tools/memory_tool_store.py) joins entries with
+# ENTRY_DELIMITER = "\n§\n". The dynamic-memory format is NEWLINE-delimited: a
+# newline means a new entry, so no separator token is required or wanted. These
+# lines are therefore runtime artifacts rather than content. We cannot stop the
+# store emitting them, so we recognise and ignore them everywhere we reason
+# about entry boundaries (replace-guard, entry counts).
+SEPARATOR_CHARS = {"\u00a7", "\u2550", "="}
+
+
+def _is_separator_line(text: str) -> bool:
+    """True for a bare separator/ruler line emitted by the memory store.
+
+    Covers the single "§" between entries and the "═"*46 ruler the tool renders
+    in its human-readable output, but not an index line that merely contains a
+    § character somewhere in its content.
+    """
+    s = (text or "").strip()
+    if not s:
+        return False
+    if s in SEPARATOR_CHARS:
+        return True
+    return len(s) >= 3 and set(s) <= SEPARATOR_CHARS
+
+
 # A legal index-line target: bare filename, OR a relative path that stays
 # inside the .hermes tree (e.g. ../../reports/REPORTS.md for the reports dir).
 ARROW_TARGET_RE = re.compile(
@@ -345,6 +369,11 @@ def handle_pre_tool_call(
         action = (args.get("action") or "add").lower()
         target = (args.get("target") or "memory").lower()
         content = (args.get("content") or "").strip()
+        # old_text is required by replace and unused by the other actions. It was
+        # previously referenced without ever being assigned, so every replace
+        # raised NameError instead of being validated (caught by the separator
+        # regression test, 2026-09-19).
+        old_text = (args.get("old_text") or "").strip()
 
         if target == "user":
             return {}
@@ -380,6 +409,17 @@ def handle_pre_tool_call(
             # Safety: a replace must never reduce the entry count by more than
             # one line. This makes whole-file clobber structurally impossible.
             old_line = entries[matches[0]]
+            # A separator line is never a valid replace target: replacing it
+            # would delete the runtime's own entry boundary instead of content.
+            if _is_separator_line(old_line):
+                return {
+                    "action": "block",
+                    "message": (
+                        "[memory-shaper] replace refused: old_text matched a separator "
+                        "line emitted by the memory store, not an index entry. "
+                        "Target the 'keyword,keyword → file.md' line itself."
+                    ),
+                }
             is_entry = _is_arrow_line(old_line)
             new_lines = (content or "").splitlines() or [""]
             # If we're replacing an index entry, the replacement should itself

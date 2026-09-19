@@ -30,6 +30,24 @@ import sys
 MIN_KEYWORDS, MAX_KEYWORDS = 5, 20
 ARROWS = ("\u2192", "->")  # Unicode arrow first (house style), ASCII tolerated
 
+# Hermes' built-in memory store joins entries with ENTRY_DELIMITER = "\n§\n"
+# (tools/memory_tool_store.py), so a bare "§" line appears between entries in any
+# file the memory tool has written more than once. The dynamic-memory format is
+# NEWLINE-delimited — a newline means a new entry and no separator token is
+# needed — so these lines are runtime artifacts, not entries. They are skipped
+# rather than flagged: they are not content, and they carry no position.
+SEPARATOR_CHARS = {"\u00a7", "\u2550", "="}
+
+
+def is_separator_line(line: str) -> bool:
+    """True for a bare separator/ruler line emitted by the memory store."""
+    s = line.strip()
+    if not s:
+        return False
+    if s in SEPARATOR_CHARS:
+        return True
+    return len(s) >= 3 and set(s) <= SEPARATOR_CHARS
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -51,10 +69,14 @@ def main() -> int:
     onfile.discard("MEMORY.md")
     onfile.discard("USER.md")
 
-    ok, bad, seen_targets = [], [], set()
+    ok, bad, seen_targets, separators = [], [], set(), 0
     for raw in lines:
         line = raw.strip()
         if not line or line.startswith("#"):
+            continue
+        if is_separator_line(line):
+            # Runtime artifact from the memory store's entry join; not content.
+            separators += 1
             continue
         arrow = next((a for a in ARROWS if a in line), None)
         if not arrow:
@@ -102,8 +124,9 @@ def main() -> int:
         print(f"  [FAIL] ANTI-ORPHAN: file '{o}' exists on disk but has no index line")
 
     total = len(ok) + len(bad) + len(orphans)
+    note = f", {separators} separator line(s) ignored" if separators else ""
     print(f"\n{len(ok)} lines OK, {len(bad)} bad lines, {len(orphans)} orphaned files "
-          f"({total} checks)")
+          f"({total} checks{note})")
     return 1 if (bad or orphans) else 0
 
 

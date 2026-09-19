@@ -54,5 +54,66 @@ for name, tool, args, expect_block in cases:
     fails += (not ok)
     print(f"  [{'PASS' if ok else 'FAIL'}] {name:18} blocked={blocked} expected={expect_block}")
 
+# --- separator-line classification -------------------------------------------
+# Hermes' memory store joins entries with "\n§\n" (tools/memory_tool_store.py).
+# The dynamic-memory format is newline-delimited, so those lines are runtime
+# artifacts and must never be treated as entries.
+sep_cases = [
+    ("bare section sign", "§", True),
+    ("ruler",             "═" * 46, True),
+    ("equals ruler",      "======", True),
+    ("whitespace padded", "  §  ", True),
+    ("index line",        "java,jvm,heap,gc,profiling → java-performance.md", False),
+    ("line containing §", "sigma,section,§,mark,glyph → symbols.md", False),
+    ("empty",             "", False),
+]
+print()
+for name, text, expect_sep in sep_cases:
+    got = plugin._is_separator_line(text)
+    ok = got == expect_sep
+    fails += (not ok)
+    shown = text if len(text) <= 24 else text[:24] + "…"
+    print(f"  [{'PASS' if ok else 'FAIL'}] sep:{name:18} is_sep={got} expected={expect_sep}  ({shown!r})")
+
+# A replace that targets a separator line must be refused — deleting the
+# runtime's own boundary is not an index edit. This needs a file that actually
+# contains a separator, so point the plugin at a temp dir rather than relying on
+# whatever happens to be in the real memories directory.
+print()
+import tempfile
+from pathlib import Path
+
+with tempfile.TemporaryDirectory() as td:
+    fake = Path(td) / "MEMORY.md"
+    fake.write_text(
+        "java,jvm,heap,gc,profiling,jmx,tuning \u2192 java-performance.md\n"
+        "\u00a7\n"
+        "router,firmware,subnet,dns,dhcp,modem,openwrt \u2192 home-network.md\n",
+        encoding="utf-8",
+    )
+    plugin.MEMORY_MD = fake
+    sep_target = plugin.handle_pre_tool_call(
+        "memory",
+        {"action": "replace", "target": "memory", "old_text": "\u00a7",
+         "content": "a,b,c,d,e \u2192 x.md"},
+    )
+    blocked = isinstance(sep_target, dict) and sep_target.get("action") == "block"
+    msg = (sep_target or {}).get("message", "") if isinstance(sep_target, dict) else ""
+    ok = blocked and "separator" in msg
+    fails += (not ok)
+    print(f"  [{'PASS' if ok else 'FAIL'}] replace on separator refused  blocked={blocked} "
+          f"reason={'separator' if 'separator' in msg else msg[:48]}")
+
+    # A replace targeting a real entry line must still work.
+    real = plugin.handle_pre_tool_call(
+        "memory",
+        {"action": "replace", "target": "memory",
+         "old_text": "java,jvm", "content": "jvm,heap,gc,profiling,jmx,tuning,xmx \u2192 java-performance.md"},
+    )
+    real_blocked = isinstance(real, dict) and real.get("action") == "block"
+    ok = not real_blocked
+    fails += (not ok)
+    print(f"  [{'PASS' if ok else 'FAIL'}] replace on real entry allowed  blocked={real_blocked}")
+
 print("\nFAILURES:", fails)
 sys.exit(1 if fails else 0)

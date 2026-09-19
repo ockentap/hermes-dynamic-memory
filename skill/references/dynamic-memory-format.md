@@ -12,7 +12,7 @@ keyword,keyword,keyword → file.md
 | arrow | Unicode `→` (U+2192), single space either side | `->` |
 | target | bare `*.md` filename in the same directory | `memories/foo.md`, `~/foo.md`, `/abs/foo.md` |
 | count | exactly one line per topic file | two lines → same file |
-| content | keywords only — no prose, no `§`, no parentheticals | `Notes about the memory tool (see docs)` |
+| content | keywords only — no prose, no parentheticals (a bare `§` line is a runtime separator, not content — see below) | `Notes about the memory tool (see docs)` |
 
 ## Header vs body
 
@@ -104,6 +104,25 @@ old,topic,keywords,here,now → deleted-file.md
 ```
 The agent reads the line, tries the file, gets an error, and burns a turn. Worse
 than no line, because the line actively asserts content exists.
+
+**Separator lines (`§`)**
+
+Hermes' memory store joins entries with `"\n§\n"` (`tools/memory_tool_store.py`),
+so a bare `§` line appears between entries in any file the `memory` tool has
+written more than once. The format is newline-delimited, so these lines carry no
+meaning — but they are unavoidable runtime artifacts.
+
+`verify_index.py` **skips** them and reports the count. It does not flag them,
+and it should not: flagging an artifact the runtime inserts unconditionally just
+trains the reader to ignore validator output.
+
+```
+2 lines OK, 0 bad lines, 0 orphaned files (4 checks, 1 separator line(s) ignored)
+```
+
+The difference from a violating `§`: a **bare** `§` line (or a `═`/`=` ruler) is a
+separator and is ignored; a `§` *inside* an index line's content is still wrong,
+because it means prose or a paragraph model crept into the line.
 
 ## The prose detector
 

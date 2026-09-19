@@ -67,8 +67,19 @@ to keep far more, in full detail, at a fraction of the resident cost.
 **Read the full method, including limitations:** [`docs/complexity.md`](docs/complexity.md) ·
 [`docs/cohort-50.md`](docs/cohort-50.md) · [`docs/compression.md`](docs/compression.md)
 
-Raw transcripts for every probe are committed alongside each write-up, so the
-scoring can be audited rather than trusted.
+**Verify it yourself:** [`benchmarks/`](benchmarks/README.md) contains the fixtures,
+scripts and raw transcripts. Re-score the committed answers with no API key and no
+containers:
+
+```bash
+python3 benchmarks/scripts/run_complexity.py --verify-only
+# native  : 11/30
+# dynamic : 30/30
+```
+
+An independent clean re-run reproduced dynamic exactly (30/30) and native in shape
+(10/11 stored, 0/19 refused), with the variance traced to reconstruction rather than
+recall — see [`benchmarks/REPRODUCTION.md`](benchmarks/REPRODUCTION.md).
 
 ---
 

@@ -1,0 +1,252 @@
+[
+ {
+  "id": "pref_editor",
+  "cat": "preference",
+  "text": "Editor is Neovim with a custom Lua config; refuses to use VS Code."
+ },
+ {
+  "id": "pref_shell",
+  "cat": "preference",
+  "text": "Shell is fish, not bash, on personal machines."
+ },
+ {
+  "id": "pref_theme",
+  "cat": "preference",
+  "text": "Prefers dark themes; dislikes pure black, uses a warm dark grey background."
+ },
+ {
+  "id": "pref_meetings",
+  "cat": "preference",
+  "text": "No meetings before 10am local time; mornings are for deep work."
+ },
+ {
+  "id": "pref_commits",
+  "cat": "preference",
+  "text": "Wants conventional commits (feat:, fix:, chore:) with no emoji."
+ },
+ {
+  "id": "pref_coffee",
+  "cat": "preference",
+  "text": "Drinks espresso, specifically a double shot, no sugar. Owns a manual lever machine."
+ },
+ {
+  "id": "pref_docs",
+  "cat": "preference",
+  "text": "Prefers prose documentation over bullet lists for anything conceptual."
+ },
+ {
+  "id": "pref_tests",
+  "cat": "preference",
+  "text": "Insists on tests being written before the implementation, not after."
+ },
+ {
+  "id": "pref_reviews",
+  "cat": "preference",
+  "text": "Reviews PRs by reading the diff, never trusting the description."
+ },
+ {
+  "id": "pref_speed",
+  "cat": "preference",
+  "text": "Hates animated spinners and progress bars; prefers plain text status."
+ },
+ {
+  "id": "pref_notes",
+  "cat": "preference",
+  "text": "Takes notes in plain text files, never in a note app with a database."
+ },
+ {
+  "id": "pref_arch",
+  "cat": "preference",
+  "text": "Prefers boring, proven technology over new frameworks."
+ },
+ {
+  "id": "bg_country",
+  "cat": "background",
+  "text": "Lives in Portugal, in Lisbon specifically."
+ },
+ {
+  "id": "bg_lang_pt",
+  "cat": "background",
+  "text": "Speaks Portuguese fluently, including reading technical docs in it."
+ },
+ {
+  "id": "bg_lang_de",
+  "cat": "background",
+  "text": "Speaks German at a conversational level, learned living in Berlin."
+ },
+ {
+  "id": "bg_role",
+  "cat": "background",
+  "text": "Works as a backend/platform engineer, ~8 years experience."
+ },
+ {
+  "id": "bg_edu",
+  "cat": "background",
+  "text": "Has a degree in physics, moved into software later."
+ },
+ {
+  "id": "bg_employer",
+  "cat": "background",
+  "text": "Works at a company in the payments space, around 40 engineers."
+ },
+ {
+  "id": "bg_tz",
+  "cat": "background",
+  "text": "Timezone is Europe/Lisbon (WET/WEST), which matters for scheduling."
+ },
+ {
+  "id": "bg_home_net",
+  "cat": "background",
+  "text": "Runs a home lab with a self-hosted DNS resolver and a VPN back to it."
+ },
+ {
+  "id": "env_machine",
+  "cat": "environment",
+  "text": "Primary machine is an M2 MacBook Pro, 32GB RAM, 1TB disk."
+ },
+ {
+  "id": "env_os",
+  "cat": "environment",
+  "text": "Uses macOS on the laptop and Debian on the home server."
+ },
+ {
+  "id": "env_homeserver",
+  "cat": "environment",
+  "text": "Home server is a mini PC with an N100 CPU and 16GB RAM."
+ },
+ {
+  "id": "env_terminal",
+  "cat": "environment",
+  "text": "Terminal is Ghostty with a minimal prompt showing only git branch."
+ },
+ {
+  "id": "env_font",
+  "cat": "environment",
+  "text": "Uses JetBrains Mono at 13pt in the terminal."
+ },
+ {
+  "id": "env_keyboard",
+  "cat": "environment",
+  "text": "Types on a split ortholinear keyboard, not a standard layout."
+ },
+ {
+  "id": "env_editor_cfg",
+  "cat": "environment",
+  "text": "Dotfiles are managed with a bare git repo, no stow or chezmoi."
+ },
+ {
+  "id": "env_backup",
+  "cat": "environment",
+  "text": "Backs up to a USB SSD monthly, no cloud backup for personal files."
+ },
+ {
+  "id": "env_gpu",
+  "cat": "environment",
+  "text": "No discrete GPU anywhere; does not do local model inference."
+ },
+ {
+  "id": "env_phone",
+  "cat": "environment",
+  "text": "Uses a de-Googled Android phone, no Google Play services."
+ },
+ {
+  "id": "env_browser",
+  "cat": "environment",
+  "text": "Default browser is Firefox with strict tracking protection."
+ },
+ {
+  "id": "env_ci",
+  "cat": "environment",
+  "text": "Work CI is GitHub Actions; home projects use a self-hosted Forgejo runner."
+ },
+ {
+  "id": "wk_vcs",
+  "cat": "work",
+  "text": "Version control is git, with rebase-and-merge; squash merges are discouraged."
+ },
+ {
+  "id": "wk_branch",
+  "cat": "work",
+  "text": "Branch names are ticket-prefixed, e.g. PAY-1234-add-refunds."
+ },
+ {
+  "id": "wk_lang",
+  "cat": "work",
+  "text": "Primary language is Go; writes Python for scripts and tooling."
+ },
+ {
+  "id": "wk_db",
+  "cat": "work",
+  "text": "Datastores are Postgres for OLTP and ClickHouse for analytics."
+ },
+ {
+  "id": "wk_queue",
+  "cat": "work",
+  "text": "Message broker is Kafka, managed internally, not a cloud offering."
+ },
+ {
+  "id": "wk_deploy",
+  "cat": "work",
+  "text": "Deploys are containerized on Kubernetes, on-prem rather than cloud."
+ },
+ {
+  "id": "wk_secrets",
+  "cat": "work",
+  "text": "Secrets are managed in Vault; no secrets in env vars in production."
+ },
+ {
+  "id": "wk_monitoring",
+  "cat": "work",
+  "text": "Monitoring is Prometheus and Grafana, with PagerDuty for paging."
+ },
+ {
+  "id": "wk_incident",
+  "cat": "work",
+  "text": "Incident channel is Slack #inc-payments; all sev-1s get a written postmortem."
+ },
+ {
+  "id": "wk_docs_where",
+  "cat": "work",
+  "text": "Internal docs live in a self-hosted wiki, not in the git repo."
+ },
+ {
+  "id": "lg_travel",
+  "cat": "logistics",
+  "text": "Travels to Berlin about four times a year for family."
+ },
+ {
+  "id": "lg_diet",
+  "cat": "logistics",
+  "text": "Vegetarian, but eats fish; no red meat or poultry."
+ },
+ {
+  "id": "lg_sleep",
+  "cat": "logistics",
+  "text": "Wakes around 06:30, sleeps by 22:30 on weekdays."
+ },
+ {
+  "id": "lg_sport",
+  "cat": "logistics",
+  "text": "Runs three times a week, training for a half marathon in November."
+ },
+ {
+  "id": "lg_pets",
+  "cat": "logistics",
+  "text": "Has two cats, both rescues, one named Miso."
+ },
+ {
+  "id": "lg_drinks",
+  "cat": "logistics",
+  "text": "Does not drink alcohol; orders sparkling water at work events."
+ },
+ {
+  "id": "lg_reading",
+  "cat": "logistics",
+  "text": "Reads science fiction; currently working through the Culture novels."
+ },
+ {
+  "id": "lg_finance",
+  "cat": "logistics",
+  "text": "Tracks personal spending in a plain spreadsheet, no budgeting app."
+ }
+]

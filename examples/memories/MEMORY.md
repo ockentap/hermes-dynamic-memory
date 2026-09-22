@@ -10,9 +10,12 @@
 # Qualifier prefixes (user-assigned only):
 #   !! critical — never edit without explicit user approval
 #   !  pinned   — never prune
+#
+# postgres-notes.md was archived by the access watchdog (scripts/dynmem-watchdog.py):
+# least-read entry when the index passed its char cap. Its line moved verbatim to
+# archived memories/archived-memories.md — still keyword-searchable, nothing deleted.
 java,springframework,jvm,garbagecollection,heap,profiling,jmx → java-performance.md
 javascript,typescript,npm,bundler,webpack,vite,node,lint → js-toolchain.md
-database,postgres,index,query,explain,migration,vacuum → postgres-notes.md
 python,venv,packaging,poetry,ruff,pytest,typing → python-env.md
 deploy,release,pipeline,staging,rollback,canary,ci → deploy-pipeline.md
 git,branch,rebase,worktree,conflict,cherrypick,stash → git-workflow.md

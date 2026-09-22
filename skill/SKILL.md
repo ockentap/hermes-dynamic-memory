@@ -1,7 +1,7 @@
 ---
 name: dynamic-memory
 description: "Two-tier keyword-index memory for Hermes Agent. MEMORY.md is a flat keyword index (keyword,keyword → file.md) injected into the system prompt each session; verbose detail lives in topic files read on demand. Covers the write protocol, retrieval routing, the routing-instruction requirement, and diagnosis of the failure modes that silently break recall."
-version: 2.0.0
+version: 2.1.0
 author: ockentap
 license: Apache-2.0
 tags: [memory, context, dynamic-memory, keyword-index, routing, MEMORY.md]
@@ -61,10 +61,12 @@ The index arrives as a bare list. Without an explicit routing instruction somewh
 `MEMORY.md` is a curated subset, not the whole knowledge base. When no keyword matches, or the matched file doesn't answer the question, do not stop and report that you have no memory of it. Search further, in this order:
 
 1. Scan the index (already in context) → read the linked topic file.
-2. `mempalace search "<query>" --results 5` — mined session history, if available.
-3. `session_search(query="...")` — conversation transcripts.
-4. Read the named file or skill directly.
-5. Only then say you don't have it — and say what you searched.
+2. Check `memories/archived memories/archived-memories.md` — pruned entries
+   keep their full topic files one directory deep, still keyword-searchable.
+3. `mempalace search "<query>" --results 5` — mined session history, if available.
+4. `session_search(query="...")` — conversation transcripts.
+5. Read the named file or skill directly.
+6. Only then say you don't have it — and say what you searched.
 
 ## Write protocol (memory tool only)
 
@@ -120,12 +122,37 @@ Keywords come from the file's own content — proper nouns, domain names, filena
 
 - Entries are ranked by how often their topic file is actually read (most-accessed highest); new entries go at the top of the untagged region.
 - When the character cap is exceeded, prune from the bottom. Tagged entries are never reordered and never pruned.
-- **Never delete on prune.** Move, don't delete — the history of what was pruned and when must survive:
-  ```bash
-  mv ~/.hermes/memories/X.md ~/.hermes/old-memories/X.md.YYYYMMDD-HHMMSS
+- **Never delete on prune — archive instead.** The sanctioned shape
+  ([`scripts/dynmem-watchdog.py`](../scripts/dynmem-watchdog.py), run daily):
+
+  ```
+  memories/<topic>.md                    memories/archived memories/<topic>.md
+  ─ plus its index line in MEMORY.md  →  ─ appended verbatim to
+                                           memories/archived memories/archived-memories.md
   ```
 
-**Known flaw in pure access-ranking:** brand-new entries have no read history, so they sink to the bottom and are pruned first. If you implement a tally, tie-break by last-access date and give entries younger than a grace window (e.g. 14 days) a floor rank so they cannot be pruned before they have had a chance to be read.
+  The topic file keeps its **plain `.md` name** and the archive index keeps
+  the same `keywords → file.md` line shape as the live one, so archived
+  memories stay *keyword-searchable like everything else* — one directory
+  deep, zero new machinery. Each line in the archive index is the original
+  entry verbatim, which makes restoring a copy-paste. The archive index is
+  rebuilt from the files actually present on disk, so it can never drift,
+  and a pre-prune backup of the live index (`MEMORY.md.bak-<ts>`) lives in
+  the same directory.
+
+- **Retrieval order:** live index → **archive index** → any deeper
+  fallback (session history, vector store). The archive is one read away
+  and contains exactly the facts that were once hot enough to be curated.
+- **Grace window:** an entry younger than ~14 days, or accessed within the
+  last ~14 days, is never an archive candidate — brand-new entries have no
+  read history yet, and pure access-ranking would evict them first.
+
+The watchdog tallies accesses from the agent's own tool-call history (e.g.
+a session database), stores counts in a sidecar JSON
+(`memories/.access-tally.json`) rather than in the index, and never writes
+counters into the resident prompt budget. It reorders only untagged lines
+among the slots they already occupy, so the header, `!!`/`!` block, and any
+non-entry lines are frozen anchors.
 
 ## Governance — the memory-shaper plugin
 

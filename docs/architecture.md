@@ -72,6 +72,48 @@ Index lines are keyword lists: many commas, few spaces. Prose is the opposite. T
 - Topic files are unlimited in individual size — they are read on demand, never injected.
 - USER.md is kept as a separate, small, always-in-context block.
 
+## Lifecycle: the access watchdog
+
+`scripts/dynmem-watchdog.py` automates ordering and eviction. Run on a
+schedule (daily is plenty; it is silent when it has nothing to report):
+
+```
+ state.db tool-call history        memories/.access-tally.json
+ ────────────────────────  tally    ─────────────────────────────
+   incremental scan,           →     {file: {reads, last}}
+   one access per message            (sidecar — never in the index)
+                                          │
+                                          ▼
+ MEMORY.md untagged lines          sort hot-first, in place
+ ──────────────────────────        (!! / ! never move)
+                                          │
+                              over 95% of char cap?
+                                          ▼
+ memories/X.md  ──move──▶  memories/archived memories/X.md
+ its line      ──move──▶  memories/archived memories/archived-memories.md
+ (backup:      ──────▶   memories/archived memories/MEMORY.md.bak-<ts>)
+ ```
+
+Three properties make this safe to leave running:
+
+1. **Move, never delete.** An archived topic file keeps its plain `.md`
+   name and its index line moves verbatim beside it, so the archive is a
+   normal keyword-searchable index — step 2 of the retrieval order, ahead
+   of any deep fallback.
+2. **Structural freeze.** The script only permutes untagged entry lines
+   among the slots they already occupy. Header, tagged block, the template
+   line, and every malformed line are anchors it cannot touch. A
+   character-multiset check of the file before/after each apply is part of
+   development testing for exactly this reason.
+3. **Grace window.** Files younger than 14 days, or accessed in the last
+   14 days, are never archive candidates — which fixes the known flaw of
+   pure access-ranking (new entries have no history and would sink
+   straight to the eviction queue).
+
+The archive index is regenerated from the files actually present in the
+archive directory on every run, so it cannot drift, and a restored file's
+line drops out automatically on the next pass.
+
 ## Configuration
 
 The memory directory resolves via `HERMES_HOME` at runtime, never as an import-time constant. A cached module-level path goes stale when an agent profile switches after first import — a subtle failure that only shows up in multi-profile setups, so the path lookup is deliberately re-evaluated on every call.

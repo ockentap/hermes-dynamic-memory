@@ -142,6 +142,7 @@ Two tiers, one index line per topic:
 - **One line per topic file** — 5–20 lowercase comma-separated keywords. The floor forces you to think about where a file will be looked up from; the ceiling stops keyword sprawl.
 - **Qualifier prefixes** (`!!` critical, `!` pinned) are user-assigned only — the agent never tags its own entries. Tagged lines are never pruned or reordered.
 - **Ordering is access-driven.** Most-read topics float to the top; when the index hits its character cap, pruning happens at the bottom.
+- **Pruning archives; it never deletes.** The evicted file moves to `memories/archived memories/` under its plain `.md` name and its index line moves verbatim into `archived-memories.md` there — a keyword-searchable index one directory deep. See [`scripts/dynmem-watchdog.py`](scripts/dynmem-watchdog.py).
 - **Keywords are maintained with the file.** Adding a concept to a topic file without adding matching keywords creates content nothing can ever reach.
 
 ## Retrieval: set-level matching with model-side fuzz
@@ -162,7 +163,7 @@ The index block carries the routing instruction in the deployed configuration: *
 
 **Important:** stock Hermes injects the index block as-is, with no routing instructions attached. It renders your `MEMORY.md` under a `MEMORY (your personal notes)` header and stops there. The routing instruction therefore has to come from somewhere you control — the [`skill/`](skill/) file is the supported place for it (see [Making retrieval actually fire](#making-retrieval-actually-fire) below). Without it, a capable model will often still find the right file, but by searching the filesystem rather than by routing from the index — which is slower and defeats the point.
 
-There is no fallback search in the core design. You can run one alongside it, but keep it separate rather than coupling it to the index.
+There is no fallback search in the core design. The one thing that is part of the design is the **archive index** (`memories/archived memories/archived-memories.md`): when the access watchdog evicts an entry, its keyword line moves there verbatim and its topic file keeps its name beside it — so yesterday's curated memory is still keyword-searchable forever. Anything deeper (session search, vector stores) you can run alongside, but keep it separate rather than coupling it to the index.
 
 ## Making retrieval actually fire
 
@@ -238,7 +239,15 @@ That always-on index block is the **entire** overhead. As a comparison point: a 
 6. **Try the demo first (optional)** — the example index in this repo validates clean, so you can see the target layout before restructuring your own:
    ```bash
    python3 scripts/verify_index.py examples/memories/MEMORY.md
-   # 8 lines OK, 0 bad lines, 0 orphaned files
+   # 7 lines OK, 0 bad lines, 0 orphaned files
+   ```
+7. **Automate the lifecycle (optional)** — `scripts/dynmem-watchdog.py` tallies
+   topic reads from the agent's session database, keeps untagged lines sorted
+   most-read first, and when the index passes 95% of its char cap archives the
+   least-read entries to `memories/archived memories/` (plain `.md`, searchable,
+   nothing deleted). Stdlib only; run it on any scheduler, silently:
+   ```bash
+   python3 scripts/dynmem-watchdog.py --dry-run    # see what it would do
    ```
 
 ## Troubleshooting
@@ -320,9 +329,11 @@ We would call that success. The two things worth borrowing from this project reg
 plugin/memory-shaper/        the enforcement plugin (drop into ~/.hermes/plugins/)
 skill/                       the dynamic-memory skill + diagnostic references
 scripts/verify_index.py      index validator (arrows, targets, keyword bounds, orphans)
+scripts/dynmem-watchdog.py   access tally, hot-first reorder, archival prune (move, never delete)
 scripts/test_hook_cases.py   hook logic test: reads pass, every write vector blocks
 scripts/test_retrieval.py    did retrieval route from the index, or brute-force search?
-examples/memories/           synthetic demo index + topic files (fully fictional)
+examples/memories/           synthetic demo index + topic files (fully fictional),
+                             incl. archived memories/ with its searchable archive index
 examples/demo-retrieval.md   worked demo: set matching and associative jumps
 docs/architecture.md         architecture deep-dive (code-level trace)
 docs/benchmark.md            native vs dynamic: resident cost + retrieval, with limitations

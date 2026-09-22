@@ -66,8 +66,13 @@ def main() -> int:
         return 1
 
     onfile = {os.path.basename(p) for p in glob.glob(os.path.join(memdir, "*.md"))}
-    onfile.discard("MEMORY.md")
-    onfile.discard("USER.md")
+    # Index-shaped files are self-describing and never count as orphans:
+    # the live index, the user profile, and the archive index that lives
+    # beside archived topic files (dynmem-watchdog.py writes it as
+    # archived-memories.md; uppercase spellings accepted for safety).
+    SELF_REFERRING = {"MEMORY.MD", "USER.MD", "ARCHIVED-MEMORIES.MD",
+                      "ARCHIVED-MEMORY.MD"}
+    onfile = {n for n in onfile if n.upper() not in SELF_REFERRING}
 
     ok, bad, seen_targets, separators = [], [], set(), 0
     for raw in lines:

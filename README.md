@@ -23,9 +23,8 @@ possible source.
 
 **Conditions:** model `deepseek 4.1 flash` (configured as `deepseek-chat`,
 provider `deepseek`), Hermes v0.21.3, native cap 2,200 chars, 2026-09-19.
-The model is part of the result — it prefers local filesystem evidence over
-injected memory, which works *against* dynamic memory here. The same conditions
-are stamped into every raw results file.
+These conditions are stamped into every raw results file, and the method
+documents its limits — including one that works against the numbers below.
 
 | | Native memory | Dynamic memory |
 |---|---|---|
@@ -73,6 +72,12 @@ Native's limit is **count, not depth**: a few memories held perfectly,
 everything past that lost, with no way to prioritise. Dynamic memory trades a
 keyword lookup for far more capacity, in full detail, at a fraction of the
 resident cost.
+
+The margin here is also **understated by the test itself**: this model prefers
+live filesystem evidence over injected memory — asked "what shell do I use?"
+with *fish* stored in memory, it checked `$SHELL` in the container and answered
+*bash* (the `pref_shell` case, scored as a dynamic failure). Neutral tool
+habits can only move dynamic's number up.
 
 Method and limitations: [`docs/complexity.md`](docs/complexity.md) ·
 [`docs/cohort-50.md`](docs/cohort-50.md) · [`docs/compression.md`](docs/compression.md).

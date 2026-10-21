@@ -135,4 +135,29 @@ for s in ("top", "right"):
     ax.spines[s].set_visible(False)
 finish(fig, f"{OUT}/resident-cost.svg")
 
+# ---------------------------------------------------------------- chart 4
+# Live-memory index vs the corpus it fronts (2026-10-21 run)
+li = data["live_index"]
+fig, ax = plt.subplots(figsize=(7.5, 3.0))
+labels = ["Every topic file\n(127 files, resident)", "Keyword index only\n(128 entries, resident)"]
+vals = [li["corpus_tokens"], li["index_tokens"]]
+colors = [NATIVE, DYNAMIC]
+bars = ax.barh(labels, vals, color=colors, height=0.5)
+for b, v in zip(bars, vals):
+    ax.text(v + 2200, b.get_y() + b.get_height() / 2,
+            f"{v:,} tokens", va="center", ha="left", fontsize=14,
+            fontweight="bold", color=b.get_facecolor())
+ax.set_xlim(0, max(vals) * 1.30)
+ax.set_xlabel("prompt tokens sent on one routed query")
+ax.set_title("Resident context: full corpus vs keyword index",
+             fontsize=13, fontweight="bold", pad=14)
+ax.text(0.99, -0.40, f'{li["ratio_tokens"]:.1f}x fewer tokens',
+        transform=ax.transAxes, ha="right", fontsize=12,
+        fontweight="bold", color=DYNAMIC)
+ax.grid(axis="x", color=GRID, alpha=0.22, linewidth=0.8)
+ax.set_axisbelow(True)
+for s in ("top", "right", "left"):
+    ax.spines[s].set_visible(False)
+finish(fig, f"{OUT}/live-index-cost.svg")
+
 print("\nall charts written to docs/charts/")

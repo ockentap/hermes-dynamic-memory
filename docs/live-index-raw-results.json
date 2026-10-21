@@ -1,0 +1,555 @@
+{
+ "run": "2026-10-21",
+ "model": "minimax/minimax-m3.1-flash:free",
+ "probes": [
+  {
+   "id": "p01",
+   "question": "How do you want destructive edits handled - should I delete things I find lying around or leave them alone?",
+   "expected_file": "user-preferences.md"
+  },
+  {
+   "id": "p02",
+   "question": "Where did we keep the Forsakringskassan appeal research, and which tool did we use to pull the text out of the PDFs?",
+   "expected_file": "fk-legal-research.md"
+  },
+  {
+   "id": "p03",
+   "question": "Can I just run mkfs on the SD card to reformat it, or is that blocked on this box?",
+   "expected_file": "mkfs-blocklist.md",
+   "anchor": "blocklist"
+  },
+  {
+   "id": "p04",
+   "question": "Where does Hermes keep its main config and auth files, and how do I raise the max turns?",
+   "expected_file": "hermes-agent-config.md",
+   "anchor": "config.yaml"
+  },
+  {
+   "id": "p05",
+   "question": "The camera scan came back empty - why was the first scan wrong?",
+   "expected_file": "nejla-network.md"
+  },
+  {
+   "id": "p06",
+   "question": "Do I need to say go before you push anything to GitHub?",
+   "expected_file": "github-ops.md"
+  },
+  {
+   "id": "p07",
+   "question": "Where do you keep the index of research reports?",
+   "expected_file": "reports.md"
+  },
+  {
+   "id": "p08",
+   "question": "Which TCL television model did we settle on buying, and from which shop?",
+   "expected_file": "bih-tv-2026-09.md",
+   "anchor": "55c6k"
+  },
+  {
+   "id": "p09",
+   "question": "The say-go plugin stopped matching - was it actually disabled or a false positive?",
+   "expected_file": "deny-list-plugin-disabled-false-positive.md"
+  },
+  {
+   "id": "p10",
+   "question": "Which AV1 encoder does the compressor use by default?",
+   "expected_file": "av1-everything.md",
+   "anchor": "libsvtav1"
+  },
+  {
+   "id": "p11",
+   "question": "How do subagents escalate to a higher tier when they fail?",
+   "expected_file": "subagent-tier-dispatch.md"
+  },
+  {
+   "id": "p12",
+   "question": "What is the Intesa cashback offer tied to energy efficiency?",
+   "expected_file": "intesa-bank-bih-geff.md"
+  },
+  {
+   "id": "p13",
+   "question": "Where does the MemPalace store live and how do you search it?",
+   "expected_file": "mempalace-oracle.md",
+   "anchor": "chromadb"
+  },
+  {
+   "id": "p14",
+   "question": "What host do we publish paperbrief on, and is the subdomain reserved?",
+   "expected_file": "paperbrief-surge.md"
+  },
+  {
+   "id": "p15",
+   "question": "How do you get Ghidra talking to Hermes for disassembly?",
+   "expected_file": "ghidra-mcp.md"
+  },
+  {
+   "id": "p16",
+   "question": "Why were the subagent memory tests unreliable - what did they confabulate?",
+   "expected_file": "subagent-memory-isolation.md"
+  },
+  {
+   "id": "p17",
+   "question": "What is the Jev classifier and when does it fall back to open?",
+   "expected_file": "jev-classifier.md"
+  },
+  {
+   "id": "p18",
+   "question": "What IP do I SSH to on the Mi Router relay, and which interface is the exit node?",
+   "expected_file": "openwrt-relay-router.md",
+   "anchor": "192.168.10.1"
+  },
+  {
+   "id": "p19",
+   "question": "Why did Gemini native chat return 400s - what was missing from the request?",
+   "expected_file": "gemini-native-400-thought-signature.md",
+   "anchor": "thought_signature"
+  },
+  {
+   "id": "p20",
+   "question": "What was the savegame reconstruction bug with the room UID in FalloutPythons?",
+   "expected_file": "falloutpythons-bugs.md",
+   "anchor": "savegame"
+  },
+  {
+   "id": "p21",
+   "question": "What is the Arch desktop's tailnet address and which model plan does it use?",
+   "expected_file": "desktop-archlinux-hermes.md",
+   "anchor": "100.84.88.126"
+  },
+  {
+   "id": "p22",
+   "question": "How does aKlima schedule the cheap electricity hours?",
+   "expected_file": "aklima-android-app.md"
+  },
+  {
+   "id": "p23",
+   "question": "Why did writing a file get blocked by the deny-list hook?",
+   "expected_file": "hook-false-positives.md"
+  },
+  {
+   "id": "p24",
+   "question": "What does the rank fallback plugin do when it gets a 429?",
+   "expected_file": "rank-fallback-plugin.md"
+  },
+  {
+   "id": "p25",
+   "question": "Where is the Cloudflare API token stored?",
+   "expected_file": "cf-token-storage.md"
+  },
+  {
+   "id": "p26",
+   "question": "Why did the aApp store show missing packages on the phone?",
+   "expected_file": "aapp-store-lessons.md"
+  },
+  {
+   "id": "p27",
+   "question": "Which endpoints does the ConnectLife cloud use for the AC, and where are the tokens?",
+   "expected_file": "connectlife-ac-cloud.md",
+   "anchor": "hijuconn"
+  },
+  {
+   "id": "p28",
+   "question": "How do I check the zoning (namjena) for a parcel in Sarajevo canton?",
+   "expected_file": "land-zoning-lookup-bih.md"
+  },
+  {
+   "id": "p29",
+   "question": "What name should appear in anything you publish about me?",
+   "expected_file": "identity-naming-rules.md"
+  },
+  {
+   "id": "p30",
+   "question": "Is it cheaper to heat water with electricity or gas right now, per kWh?",
+   "expected_file": "energy-prices-bih.md",
+   "anchor": "1.078"
+  }
+ ],
+ "results": [
+  {
+   "id": "p01",
+   "question": "How do you want destructive edits handled - should I delete things I find lying around or leave them alone?",
+   "expected": "user-preferences.md",
+   "picked": "scope-clarification.md",
+   "route_ok": false,
+   "route_raw": "{\"file\":\"scope-clarification.md\"}",
+   "route_prompt_tokens": 7145,
+   "route_completion_tokens": 150
+  },
+  {
+   "id": "p02",
+   "question": "Where did we keep the Forsakringskassan appeal research, and which tool did we use to pull the text out of the PDFs?",
+   "expected": "fk-legal-research.md",
+   "picked": "fk-legal-research.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"fk-legal-research.md\"}",
+   "route_prompt_tokens": 7153,
+   "route_completion_tokens": 169
+  },
+  {
+   "id": "p03",
+   "question": "Can I just run mkfs on the SD card to reformat it, or is that blocked on this box?",
+   "expected": "mkfs-blocklist.md",
+   "picked": "sd-card-workaround.md",
+   "route_ok": false,
+   "route_raw": "{\"file\":\"sd-card-workaround.md\"}",
+   "route_prompt_tokens": 7147,
+   "route_completion_tokens": 153,
+   "answer_raw": "`mkfs.fat` is blocked unconditionally on this box and cannot be run by Hermes, even with `--yolo` or approval modes.\n\nHermes can run:\n\n```bash\nsudo wipefs --all /dev/sdX\n```\n\nThis clears filesystem signatures but does **not** reformat the card. To fully reformat it, you must run this yourself in your own terminal:\n\n```bash\nsudo mkfs.fat /dev/sdX\n```\n\nThat command will erase the card\u2019s data.",
+   "answer_ok": false,
+   "answer_anchor": "blocklist",
+   "answer_prompt_tokens": 454
+  },
+  {
+   "id": "p04",
+   "question": "Where does Hermes keep its main config and auth files, and how do I raise the max turns?",
+   "expected": "hermes-agent-config.md",
+   "picked": "hermes-agent-config.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"hermes-agent-config.md\"}",
+   "route_prompt_tokens": 7144,
+   "route_completion_tokens": 55,
+   "answer_raw": "- **Main config:** `~/.hermes/config.yaml`\n- **Auth/secrets:** `~/.hermes/.env` and `~/.hermes/auth.json`\n\nSet the maximum turns with:\n\n```bash\nhermes config set agent.max_turns <NUMBER>\n```\n\nOr edit `agent.max_turns` in `~/.hermes/config.yaml` directly.",
+   "answer_ok": true,
+   "answer_anchor": "config.yaml",
+   "answer_prompt_tokens": 801
+  },
+  {
+   "id": "p05",
+   "question": "The camera scan came back empty - why was the first scan wrong?",
+   "expected": "nejla-network.md",
+   "picked": "nejla-network.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"nejla-network.md\"}",
+   "route_prompt_tokens": 7138,
+   "route_completion_tokens": 111
+  },
+  {
+   "id": "p06",
+   "question": "Do I need to say go before you push anything to GitHub?",
+   "expected": "github-ops.md",
+   "picked": "github-ops.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"github-ops.md\"}",
+   "route_prompt_tokens": 7138,
+   "route_completion_tokens": 89
+  },
+  {
+   "id": "p07",
+   "question": "Where do you keep the index of research reports?",
+   "expected": "reports.md",
+   "picked": "reports.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"reports.md\"}",
+   "route_prompt_tokens": 7134,
+   "route_completion_tokens": 64
+  },
+  {
+   "id": "p08",
+   "question": "Which TCL television model did we settle on buying, and from which shop?",
+   "expected": "bih-tv-2026-09.md",
+   "picked": "bih-tv-2026-09.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"bih-tv-2026-09.md\"}",
+   "route_prompt_tokens": 7139,
+   "route_completion_tokens": 195,
+   "answer_raw": "We settled on the **TCL 55C6K**, bought from **ekupi.ba** (Vitez).",
+   "answer_ok": true,
+   "answer_anchor": "55c6k",
+   "answer_prompt_tokens": 2187
+  },
+  {
+   "id": "p09",
+   "question": "The say-go plugin stopped matching - was it actually disabled or a false positive?",
+   "expected": "deny-list-plugin-disabled-false-positive.md",
+   "picked": "deny-list-plugin-disabled-false-positive.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"deny-list-plugin-disabled-false-positive.md\"}",
+   "route_prompt_tokens": 7140,
+   "route_completion_tokens": 177
+  },
+  {
+   "id": "p10",
+   "question": "Which AV1 encoder does the compressor use by default?",
+   "expected": "av1-everything.md",
+   "picked": "av1-everything.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"av1-everything.md\"}",
+   "route_prompt_tokens": 7135,
+   "route_completion_tokens": 103,
+   "answer_raw": "**libsvtav1** is the default AV1 encoder.",
+   "answer_ok": true,
+   "answer_anchor": "libsvtav1",
+   "answer_prompt_tokens": 945
+  },
+  {
+   "id": "p11",
+   "question": "How do subagents escalate to a higher tier when they fail?",
+   "expected": "subagent-tier-dispatch.md",
+   "picked": "subagent-tier-dispatch.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"subagent-tier-dispatch.md\"}",
+   "route_prompt_tokens": 7137,
+   "route_completion_tokens": 94
+  },
+  {
+   "id": "p12",
+   "question": "What is the Intesa cashback offer tied to energy efficiency?",
+   "expected": "intesa-bank-bih-geff.md",
+   "picked": "intesa-bank-bih-geff.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"intesa-bank-bih-geff.md\"}",
+   "route_prompt_tokens": 7138,
+   "route_completion_tokens": 86
+  },
+  {
+   "id": "p13",
+   "question": "Where does the MemPalace store live and how do you search it?",
+   "expected": "mempalace-oracle.md",
+   "picked": "mempalace-oracle.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"mempalace-oracle.md\"}",
+   "route_prompt_tokens": 7139,
+   "route_completion_tokens": 100,
+   "answer_raw": "MemPalace lives at:\n\n```text\n/home/ubuntu/.mempalace/palace\n```\n\nThe old `/home/media/...` path is not used on the Oracle VPS.\n\nSearch it through the MemPalace MCP server:\n\n```text\n/home/ubuntu/.hermes/hermes-agent/.venv/bin/mempalace-mcp\n```\n\nIt semantically searches the mined archive\u2014currently 2,712 drawers in `wing=hermes-agent`, `room=technical`\u2014including historical session dumps that `session_search` may miss. The MCP `args` entry in `config.yaml` must be a real YAML list, not a quoted string.",
+   "answer_ok": false,
+   "answer_anchor": "chromadb",
+   "answer_prompt_tokens": 680
+  },
+  {
+   "id": "p14",
+   "question": "What host do we publish paperbrief on, and is the subdomain reserved?",
+   "expected": "paperbrief-surge.md",
+   "picked": "paperbrief-surge.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"paperbrief-surge.md\"}",
+   "route_prompt_tokens": 7139,
+   "route_completion_tokens": 82
+  },
+  {
+   "id": "p15",
+   "question": "How do you get Ghidra talking to Hermes for disassembly?",
+   "expected": "ghidra-mcp.md",
+   "picked": "ghidra-mcp.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"ghidra-mcp.md\"}",
+   "route_prompt_tokens": 7138,
+   "route_completion_tokens": 72
+  },
+  {
+   "id": "p16",
+   "question": "Why were the subagent memory tests unreliable - what did they confabulate?",
+   "expected": "subagent-memory-isolation.md",
+   "picked": "subagent-memory-isolation.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"subagent-memory-isolation.md\"}",
+   "route_prompt_tokens": 7140,
+   "route_completion_tokens": 132
+  },
+  {
+   "id": "p17",
+   "question": "What is the Jev classifier and when does it fall back to open?",
+   "expected": "jev-classifier.md",
+   "picked": "jev-classifier.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"jev-classifier.md\"}",
+   "route_prompt_tokens": 7139,
+   "route_completion_tokens": 98
+  },
+  {
+   "id": "p18",
+   "question": "What IP do I SSH to on the Mi Router relay, and which interface is the exit node?",
+   "expected": "openwrt-relay-router.md",
+   "picked": "openwrt-relay-router.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"openwrt-relay-router.md\"}",
+   "route_prompt_tokens": 7144,
+   "route_completion_tokens": 71,
+   "answer_raw": "- **SSH:** `root@100.88.94.126` over Tailscale (key authentication). On the LAN, the router is `192.168.10.1`.\n- **Exit node:** the router\u2019s Tailscale **`tailscale0`** interface/node advertises the default routes. Traffic exiting through it uses the active WAN/WWAN uplink\u2014normally **`wwan`** (NEJLA 5G, metric 10), with `wwan2` and Starlink `wwan3/wwan4` as lower-priority fallbacks.",
+   "answer_ok": true,
+   "answer_anchor": "192.168.10.1",
+   "answer_prompt_tokens": 5473
+  },
+  {
+   "id": "p19",
+   "question": "Why did Gemini native chat return 400s - what was missing from the request?",
+   "expected": "gemini-native-400-thought-signature.md",
+   "picked": "gemini-native-400-thought-signature.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"gemini-native-400-thought-signature.md\"}",
+   "route_prompt_tokens": 7141,
+   "route_completion_tokens": 99,
+   "answer_raw": "Gemini returned HTTP 400 because the rebuilt request was missing the required `thought_signature` on its `functionCall` parts. Hermes\u2019s `gemini_native_adapter.py` failed to preserve the signature blobs Gemini returned during multi-turn tool use, so Gemini rejected the request with `INVALID_ARGUMENT: Function call is missing a thought_signature`.",
+   "answer_ok": true,
+   "answer_anchor": "thought_signature",
+   "answer_prompt_tokens": 975
+  },
+  {
+   "id": "p20",
+   "question": "What was the savegame reconstruction bug with the room UID in FalloutPythons?",
+   "expected": "falloutpythons-bugs.md",
+   "picked": "falloutpythons-bugs.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"falloutpythons-bugs.md\"}",
+   "route_prompt_tokens": 7141,
+   "route_completion_tokens": 102,
+   "answer_raw": "The save/load reconstruction was out of sync with the `Room` dataclass: rooms lacked the required `uid` field. As a result, `main.tick` built `room_ids=[]`, `roll_incident` silently exited, and `incidents_total` remained at 0.\n\nThe fix added:\n\n```python\nuid: str = field(default_factory=lambda: uuid.uuid4().hex[:8])\n```\n\nand `_reconstruct_room` must be kept aligned with the dataclass\u2019s current fields.",
+   "answer_ok": false,
+   "answer_anchor": "savegame",
+   "answer_prompt_tokens": 853
+  },
+  {
+   "id": "p21",
+   "question": "What is the Arch desktop's tailnet address and which model plan does it use?",
+   "expected": "desktop-archlinux-hermes.md",
+   "picked": "desktop-archlinux-hermes.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"desktop-archlinux-hermes.md\"}",
+   "route_prompt_tokens": 7141,
+   "route_completion_tokens": 110,
+   "answer_raw": "The Arch desktop\u2019s tailnet address is **100.84.88.126**. It uses the **Qwen Code API token-plan** for Qwen models; its default Hermes model remains **opencode-go / deepseek-v4.1-flash**.",
+   "answer_ok": true,
+   "answer_anchor": "100.84.88.126",
+   "answer_prompt_tokens": 3188
+  },
+  {
+   "id": "p22",
+   "question": "How does aKlima schedule the cheap electricity hours?",
+   "expected": "aklima-android-app.md",
+   "picked": "aklima-android-app.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"aklima-android-app.md\"}",
+   "route_prompt_tokens": 7135,
+   "route_completion_tokens": 206
+  },
+  {
+   "id": "p23",
+   "question": "Why did writing a file get blocked by the deny-list hook?",
+   "expected": "hook-false-positives.md",
+   "picked": "hook-false-positives.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"hook-false-positives.md\"}",
+   "route_prompt_tokens": 7137,
+   "route_completion_tokens": 69
+  },
+  {
+   "id": "p24",
+   "question": "What does the rank fallback plugin do when it gets a 429?",
+   "expected": "rank-fallback-plugin.md",
+   "picked": "rank-fallback-plugin.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"rank-fallback-plugin.md\"}",
+   "route_prompt_tokens": 7138,
+   "route_completion_tokens": 101
+  },
+  {
+   "id": "p25",
+   "question": "Where is the Cloudflare API token stored?",
+   "expected": "cf-token-storage.md",
+   "picked": "cf-token-storage.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"cf-token-storage.md\"}",
+   "route_prompt_tokens": 7133,
+   "route_completion_tokens": 65
+  },
+  {
+   "id": "p26",
+   "question": "Why did the aApp store show missing packages on the phone?",
+   "expected": "aapp-store-lessons.md",
+   "picked": "aapp-store-lessons.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"aapp-store-lessons.md\"}",
+   "route_prompt_tokens": 7137,
+   "route_completion_tokens": 106
+  },
+  {
+   "id": "p27",
+   "question": "Which endpoints does the ConnectLife cloud use for the AC, and where are the tokens?",
+   "expected": "connectlife-ac-cloud.md",
+   "picked": "connectlife-ac-cloud.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"connectlife-ac-cloud.md\"}",
+   "route_prompt_tokens": 7142,
+   "route_completion_tokens": 66,
+   "answer_raw": "### ConnectLife endpoints\n\n**AC API base:** `https://juapi-3rd.hijuconn.com`\n\n- `GET /clife-svc/pu/get_device_status_list` \u2014 device list and last-known status\n- `POST /device/pu/property/set` \u2014 control the AC, e.g. `{\"puid\":\"\u2026\",\"properties\":{\"t_power\":1}}`\n- `POST /clife-svc/pu/query_static_data`\n- `GET /clife-svc/get_property_list?deviceTypeCode&deviceFeatureCode`\n- `POST /clife-svc/pu/get_hour_power`\n- WebSocket: `wss://clife-eu-gateway.hijuconn.com/msg/get_msg_and_channels`\n\n**Authentication endpoints:**\n\n- OAuth login: `https://oauth.hijuconn.com/login`\n- Token exchange/refresh: `POST https://oauth.hijuconn.com/oauth/token`\n- Native password login: `POST https://oauth.hijuconn.com/oauth-web/account/acc/login_pwd`\n\n### Token storage\n\nTokens are only on the Pi:\n\n```text\n/home/media/.conn",
+   "answer_ok": true,
+   "answer_anchor": "hijuconn",
+   "answer_prompt_tokens": 2097
+  },
+  {
+   "id": "p28",
+   "question": "How do I check the zoning (namjena) for a parcel in Sarajevo canton?",
+   "expected": "land-zoning-lookup-bih.md",
+   "picked": "land-zoning-lookup-bih.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"land-zoning-lookup-bih.md\"}",
+   "route_prompt_tokens": 7142,
+   "route_completion_tokens": 77
+  },
+  {
+   "id": "p29",
+   "question": "What name should appear in anything you publish about me?",
+   "expected": "identity-naming-rules.md",
+   "picked": "identity-naming-rules.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"identity-naming-rules.md\"}",
+   "route_prompt_tokens": 7135,
+   "route_completion_tokens": 72
+  },
+  {
+   "id": "p30",
+   "question": "Is it cheaper to heat water with electricity or gas right now, per kWh?",
+   "expected": "energy-prices-bih.md",
+   "picked": "energy-prices-bih.md",
+   "route_ok": true,
+   "route_raw": "{\"file\":\"energy-prices-bih.md\"}",
+   "route_prompt_tokens": 7141,
+   "route_completion_tokens": 86,
+   "answer_raw": "**Gas is cheaper for normal water heating.**\n\n- **Gas boiler (85% efficiency):** **13.40 fening/kWh of heat**\n- **Electric heater (95% efficiency):**\n  - entirely in **MT/cheap hours:** **12.7 fening/kWh of heat** \u2014 about **5% cheaper**\n  - in **VT/peak hours:** **about 24.9 fening/kWh of heat**\n  - typical mixed use: **18\u201320 fening/kWh of heat**\n\nSo electricity wins only if the water tank is charged exclusively during MT windows. A **condensing gas boiler (98%)** costs about **11.62 fening/kWh of heat**, beating even MT electric heating.",
+   "answer_ok": false,
+   "answer_anchor": "1.078",
+   "answer_prompt_tokens": 1084
+  }
+ ],
+ "summary": {
+  "model": "minimax/minimax-m3.1-flash:free",
+  "run": "uncapped (no max_tokens, no reasoning-effort restriction)",
+  "memory_dir": "/home/ubuntu/.hermes/memories",
+  "index_chars": 22382,
+  "index_entries": 128,
+  "topic_files": 127,
+  "corpus_chars": 574243,
+  "corpus_to_index_ratio": 25.7,
+  "corpus_prompt_tokens_full": 171091,
+  "avg_route_prompt_tokens": 7139.7,
+  "prompt_token_saving_ratio": 24.0,
+  "probes": 30,
+  "route_exact_ok": 28,
+  "route_exact_acc": 0.933,
+  "route_misses": [
+   {
+    "id": "p01",
+    "picked": "scope-clarification.md",
+    "want": "user-preferences.md",
+    "verdict": "related file (ask-before-changing) but not the file that states the deletion preference - true miss"
+   },
+   {
+    "id": "p03",
+    "picked": "sd-card-workaround.md",
+    "want": "mkfs-blocklist.md",
+    "verdict": "correct retrieval - picked file also states mkfs.fat is blocked"
+   }
+  ],
+  "answer_lexical_anchor_ok": 7,
+  "answer_lexical_anchor_acc": 0.636,
+  "answer_manual_verified_ok": 11,
+  "answer_manual_verified_acc": 1.0,
+  "answer_note": "All 4 lexical misses were substantively correct: p03 'mkfs.fat is blocked' (anchor 'blocklist'), p13 palace path + MCP server (anchor 'chromadb'), p20 Room dataclass lacked uid (anchor 'savegame'), p30 gas 13.40 vs MT electric 12.7 fening/kWh (anchor '1.078').",
+  "uncapped_cost": {
+   "max_completion_tokens_seen": 206,
+   "total_completion_tokens_routing": 3160,
+   "dollars": 0
+  },
+  "run_variance": "Run 2 (max_tokens=2000, reasoning low): 29/30 route. Run 3 (uncapped): 28/30. Difference is p01 only - free-tier provider routing, temperature 0 is not deterministic across upstreams.",
+  "conclusion": "Uncapped run confirms the model never needs more than ~206 output tokens. Index is 25.7x smaller than the corpus in chars and ~24x smaller in prompt tokens. Routing 28/30 exact (29/30 defensible), answers 11/11 correct on inspection."
+ }
+}

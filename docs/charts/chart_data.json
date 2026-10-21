@@ -144,5 +144,16 @@
    2200,
    2706
   ]
- ]
+ ],
+ "live_index": {
+  "index_chars": 22382,
+  "corpus_chars": 574243,
+  "index_tokens": 7140,
+  "corpus_tokens": 171091,
+  "ratio_chars": 25.7,
+  "ratio_tokens": 24.0,
+  "probes": 30,
+  "route_exact_ok": 28,
+  "route_exact_acc": 0.933
+ }
 }

@@ -95,6 +95,35 @@ with the variance traced to reconstruction, not recall
 
 ---
 
+## Live-corpus check: 128 entries, real memory
+
+The runs above use synthetic topics in clean containers. This one uses the
+actual four-month-old memory: **127 topic files, 128 index entries**, no
+fixtures.
+
+| | Full corpus | Keyword index |
+|---|---|---|
+| chars | 574,243 | **22,382** |
+| prompt tokens per routed query | 171,091 | **7,140** |
+
+<img src="docs/charts/live-index-cost.svg" alt="Live index 7,140 prompt tokens vs full corpus 171,091" width="640">
+
+**24× fewer prompt tokens**, and 28 of 30 natural-language questions routed to
+the correct topic file on the first try (29/30 to a file that contained the
+answer). Answers were correct 11/11 when read by hand; the anchor grader said
+7/11 because it scores paraphrases as misses.
+
+**Caveat on the model:** this run used `minimax-m3.1-flash`, a cheap flash-tier
+model with weak reasoning — chosen because it is free and therefore a floor.
+It is not representative of a good agent, so 28/30 should be read as a lower
+bound, not a capability claim. The context ratio is model-independent; the
+routing number is not.
+
+Method, misses, the harness bug that produced a false 13% in the first
+attempt, and limitations: [`docs/live-index-retrieval.md`](docs/live-index-retrieval.md).
+
+---
+
 ## The pattern
 
 ```markdown
@@ -269,7 +298,7 @@ plugin/memory-shaper/        the enforcement plugin
 skill/                       skill + diagnostic references
 scripts/                     validator · watchdog · hook test · retrieval test
 examples/                    synthetic demo index, topic files, archive, walkthrough
-docs/                        architecture · three benchmark write-ups (+ raw results) · charts
+docs/                        architecture · four benchmark write-ups (+ raw results) · charts
 benchmarks/                  fixtures, runners, reproduction report
 ```
 

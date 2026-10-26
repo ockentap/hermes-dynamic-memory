@@ -229,8 +229,12 @@ Beyond that, split by profile or by tier, not by reaching for a database.
 
 ## Install
 
-1. **Plugin** — copy `plugin/memory-shaper/` to `~/.hermes/plugins/`, enable in
-   `config.yaml`. Requires Hermes with pre/post tool-call hooks.
+**From the plugin catalog** (once the entry is merged): `hermes plugins install
+dynamic-memory` — installs this repo pinned at a reviewed commit.
+
+1. **Plugin (manual)** — copy `plugin/memory-shaper/` to `~/.hermes/plugins/`,
+   enable in `config.yaml`. Requires Hermes with pre/post tool-call hooks and
+   `tool_execution` middleware support (the write guard runs as middleware).
 2. **Skill** — copy `skill/` to
    `~/.hermes/skills/system-administration/dynamic-memory/`.
 3. **Adopt the format** — restructure your index into `keywords → file.md`

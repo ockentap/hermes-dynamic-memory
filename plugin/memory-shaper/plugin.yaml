@@ -1,7 +1,7 @@
 ---
 name: memory-shaper
-version: 1.4.6
-description: "Enforces the dynamic-memory architecture. Keeps the memory index as a flat keyword table and routes verbose content to ~/.hermes/memories/<topic>.md. Validates index-line format (Unicode arrow only, bare .md targets, 5-20 lowercase keywords), rejects human-language prose via a comma-to-word ratio check, ignores the § separator lines the built-in memory store inserts between entries, and blocks the recognised write paths of non-memory tools that would touch the index (best-effort against arbitrary shell) — while always allowing reads so the agent can audit the file it maintains."
+version: 1.4.8
+description: "Enforces the dynamic-memory architecture. Keeps the memory index as a flat keyword table and routes verbose content to ~/.hermes/memories/<topic>.md. Validates index-line format (Unicode arrow only, bare .md targets, 5-20 lowercase keywords), rejects human-language prose via a comma-to-word ratio check, ignores the § separator lines the built-in memory store inserts between entries, protects the structural template line (remove/replace/patch is refused unless the user approves a rewrite), deletes the template's own placeholder lines on the first real memory write, and blocks the recognised write paths of non-memory tools that would touch the index (best-effort against arbitrary shell) — while always allowing reads so the agent can audit the file it maintains."
 author: ockentap
 license: Apache-2.0
 requires_hermes: ">=0.22.2"

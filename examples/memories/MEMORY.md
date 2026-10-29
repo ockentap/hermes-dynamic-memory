@@ -14,6 +14,11 @@
 # postgres-notes.md was archived by the access watchdog (scripts/dynmem-watchdog.py):
 # least-read entry when the index passed its char cap. Its line moved verbatim to
 # archived memories/archived-memories.md — still keyword-searchable, nothing deleted.
+#
+# dynmem's own documents are reached from this header, not from index lines:
+# how-to-write-memories.md, dynamic-memory-format-rules.md, memory-rules-and-quirks.md,
+# hook-false-positives.md, memory-retrieval-order.md, dynmem-watchdog.md,
+# memory-consolidation-cron.md, memory-benchmark-methodology.md.
 java,springframework,jvm,garbagecollection,heap,profiling,jmx → java-performance.md
 javascript,typescript,npm,bundler,webpack,vite,node,lint → js-toolchain.md
 python,venv,packaging,poetry,ruff,pytest,typing → python-env.md

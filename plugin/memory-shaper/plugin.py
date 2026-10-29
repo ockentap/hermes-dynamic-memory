@@ -243,6 +243,75 @@ def _rewrite_approved() -> bool:
         return False
 
 
+# ── Template-line protection and one-time placeholder cleanup ────────────────
+_TEMPLATE_LINE_MSG = (
+    "[memory-shaper] refused: that text is the template line "
+    "'keyword,keyword,keyword → file.md'. It is structural — the header block ends "
+    "there, and the watchdog, validator and memory tool all locate the first entry "
+    "by it. Editing or deleting it needs explicit user approval "
+    "(MEMORY_SHAPER_ALLOW_REWRITE=1 or ~/.hermes/state/.memory_shaper_rewrite_approved)."
+)
+
+_TEMPLATE_NOTE_PREFIX = "TEMPLATE \u2014"
+
+# The example entries shipped inside MEMORY.template.md. They are placeholders for
+# the reader, not memories: once the user writes a real entry they must go, or the
+# index carries lines pointing at demo files that do not exist.
+_TEMPLATE_EXAMPLES = {
+    "python-env.md", "js-toolchain.md", "java-performance.md", "deploy-pipeline.md",
+    "laptop-hardware.md", "home-network.md", "git-workflow.md",
+}
+
+
+def _is_template_target(old_text: str) -> bool:
+    """True when *old_text* identifies the structural template line."""
+    t = (old_text or "").strip().lstrip("`")
+    if not t:
+        return False
+    if t.startswith("keyword,keyword,keyword"):
+        return True
+    template = "keyword,keyword,keyword \u2192 file.md"
+    return len(t) >= 24 and t in template
+
+
+def _autoclean_template_lines() -> None:
+    """Drop the template's own placeholder lines after the first real entry.
+
+    Removes (a) the 'TEMPLATE — …' note and (b) example entries whose target file
+    does not exist in the memories directory. Idempotent; no-op once clean. Never
+    touches the structural template line, the header prose, or a real entry.
+    """
+    path = _memory_md()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return
+    memdir = path.parent
+    keep, changed = [], False
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith(_TEMPLATE_NOTE_PREFIX):
+            changed = True
+            continue
+        m = re.search(r"\u2192\s*([A-Za-z0-9_.\-]+\.md)\s*$", s)
+        if m and m.group(1) in _TEMPLATE_EXAMPLES and not (memdir / m.group(1)).exists():
+            changed = True
+            continue
+        keep.append(line)
+    if not changed:
+        return
+    try:
+        import tempfile
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".mem_clean_")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(keep) + "\n")
+        os.replace(tmp, path)
+        _logger.info("[memory-shaper] removed %d template placeholder line(s)",
+                     len(text.splitlines()) - len(keep))
+    except Exception:
+        pass
+
+
 
 def _targets_memory_md(args: dict, tool_name: str = "") -> bool:
     """Return True if the tool args actually WRITE to MEMORY.md.
@@ -377,6 +446,8 @@ def _check_patch_guard(old: str, content: str) -> dict | None:
     """
     if not old:
         return None  # schema-required old_text; missing -> the tool itself refuses
+    if _is_template_target(old) and not _rewrite_approved():
+        return {"action": "block", "message": _TEMPLATE_LINE_MSG}
     try:
         entries = _memory_md().read_text().splitlines()
     except Exception:
@@ -513,6 +584,8 @@ def handle_pre_tool_call(
         if target == "user":
             return {}
         if action == "remove":
+            if _is_template_target(old_text) and not _rewrite_approved():
+                return {"action": "block", "message": _TEMPLATE_LINE_MSG}
             return {}
 
         # === OPERATIONS[] support (for released Hermes — 2026-10-29 fix per teknium1 review) ===
@@ -535,6 +608,9 @@ def handle_pre_tool_call(
                 if _tgt == "user":
                     continue
                 if _act == "remove":
+                    if _is_template_target(_old) and not _rewrite_approved():
+                        return {"action": "block", "message":
+                                f"[memory-shaper] Operation {idx}: " + _TEMPLATE_LINE_MSG}
                     continue
                 # v0.22+ patch = SPAN replacement (rest of the entry is kept);
                 # validate the resulting line, not the fragment (teknium1 review
@@ -633,6 +709,9 @@ def handle_pre_tool_call(
             except Exception:
                 current_text = ""
             entries = current_text.splitlines()
+            # The template line is structural: only an approved rewrite may touch it.
+            if _is_template_target(old_text) and not _rewrite_approved():
+                return {"action": "block", "message": _TEMPLATE_LINE_MSG}
             matches = [i for i, e in enumerate(entries) if old_text in e]
             if len(matches) == 0:
                 return {"action": "block", "message": "[memory-shaper] replace refused: old_text did not match any entry line (0 matches)."}
@@ -749,9 +828,22 @@ def handle_pre_tool_call(
                     "USER.md is exempt — use target='user' for user-profile notes."
                 ),
             }
-        return {}
+        # First real entry: drop the template's own placeholder lines. Done HERE as
+        # well as after the write, because not every Hermes build routes the memory
+        # tool through tool_execution middleware — and the placeholders must go with
+        # the first generated memory, not eventually.
+        try:
+            _ops_all = args.get("operations") or []
+            _adds = action == "add" or any(
+                (o.get("action") or "add").lower() == "add"
+                for o in _ops_all if isinstance(o, dict)
+            )
+            if _adds:
+                _autoclean_template_lines()
+        except Exception:
+            pass  # cleanup must never break a memory write
 
-    # All other tools: refuse if they target MEMORY.md.
+        return {}
     if _targets_memory_md(args, tool_name):
         _logger.warning(
             "[memory-shaper] BLOCKED %s targeting MEMORY.md (args keys: %s)",
@@ -854,5 +946,17 @@ def handle_tool_execution_middleware(**kwargs):
     # Passthrough — actually run the memory tool
     next_call = kwargs.get("next_call")
     if callable(next_call):
-        return next_call(raw_args)
+        result = next_call(raw_args)
+        try:
+            _act = (raw_args.get("action") or "").lower()
+            _ops = raw_args.get("operations") or []
+            did_add = _act == "add" or any(
+                (o.get("action") or "add").lower() == "add"
+                for o in _ops if isinstance(o, dict)
+            )
+            if did_add and '"success": false' not in str(result):
+                _autoclean_template_lines()
+        except Exception:
+            pass  # placeholder cleanup must never break a memory write
+        return result
     return raw_args

@@ -25,6 +25,7 @@ Exit code 1 on any FAIL.
 import argparse
 import glob
 import os
+import re
 import sys
 
 MIN_KEYWORDS, MAX_KEYWORDS = 5, 20
@@ -59,6 +60,25 @@ def main() -> int:
 
     with open(args.candidate, encoding="utf-8") as f:
         lines = f.read().splitlines()
+
+    # The header block is prose plus the file list, terminated by the literal
+    # template line; only lines after it are entries. Without that line the file
+    # is validated line-by-line (the older comment-header style).
+    header_refs: set[str] = set()
+    _body_start = None
+    for i, raw in enumerate(lines):
+        if raw.strip().startswith("keyword,keyword,keyword"):
+            _body_start = i
+            header_refs = set(re.findall(r"([A-Za-z0-9_.\-]+\.md)\b",
+                                         "\n".join(lines[:i])))
+            lines = lines[i + 1:]
+            break
+    if _body_start is None:
+        # Older comment-header style: '#' lines are the header, so a file named
+        # there is still reachable and must not count as an orphan.
+        header_refs = set(re.findall(r"([A-Za-z0-9_.\-]+\.md)\b",
+                                     "\n".join(l for l in lines
+                                               if l.strip().startswith("#"))))
 
     memdir = args.memdir or os.path.dirname(os.path.abspath(args.candidate)) or "."
     if not os.path.isdir(memdir):
@@ -123,8 +143,10 @@ def main() -> int:
     for reason, line in bad:
         print(f"  [FAIL] {reason}: {line}")
 
-    # Reverse check: files on disk not referenced by any line
-    orphans = sorted(onfile - seen_targets)
+    # Reverse check: files on disk not referenced by any line. Files named in the
+    # header block count as referenced — dynmem points its own docs at the header
+    # instead of giving each one an index line.
+    orphans = sorted(onfile - seen_targets - header_refs)
     for o in orphans:
         print(f"  [FAIL] ANTI-ORPHAN: file '{o}' exists on disk but has no index line")
 

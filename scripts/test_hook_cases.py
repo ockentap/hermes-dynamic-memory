@@ -92,6 +92,10 @@ with tempfile.TemporaryDirectory() as td:
         encoding="utf-8",
     )
     plugin.MEMORY_MD = fake
+    # 1.4.5+ resolves the index path per call (profile-aware); patch the resolver
+    # too, otherwise the guard reads the real host MEMORY.md, not this fixture.
+    plugin._memory_md = lambda: fake
+    plugin._memory_md_resolved = lambda: str(fake.resolve())
     sep_target = plugin.handle_pre_tool_call(
         "memory",
         {"action": "replace", "target": "memory", "old_text": "\u00a7",

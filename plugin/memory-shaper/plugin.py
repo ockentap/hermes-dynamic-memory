@@ -387,8 +387,12 @@ def _check_patch_guard(old: str, content: str) -> dict | None:
     line = entries[hits[0]]
     if _is_separator_line(line) or not _is_arrow_line(line):
         return None  # header/prose/separator: not an index entry we can corrupt
-    if line.count(old) != 1:
-        return None  # occurs more than once in the entry: the store rejects
+    # Store semantics (memory_tool_store._span_occurrences): occurrences
+    # OVERLAPPING count too ('aa' twice in 'aaa') and the write is rejected
+    # then, not applied. Mirror that exactly.
+    occ = sum(line.startswith(old, i) for i in range(len(line) - len(old) + 1))
+    if occ != 1:
+        return None  # 0 or ambiguous span: the store rejects; file untouched
     # A patch must not introduce line breaks: the store keeps entries one per
     # line, and a smuggled \n turns one entry into a corrupt multi-line blob.
     if "\n" in (content or "") or "\r" in (content or ""):
@@ -483,8 +487,11 @@ def handle_pre_tool_call(
     target MEMORY.md, because those tools bypass every guarantee the memory
     tool provides.
 
-    This is the strict mode — any non-`memory` tool call whose args reference
-    MEMORY.md is refused with a routing hint.
+    Strict mode: every non-`memory` tool call whose args hit a RECOGNISED
+    write vector for MEMORY.md is refused with a routing hint. The shell
+    detection is best-effort against known vectors (redirects, tee, sed -i,
+    in-program -o, script/execute_code writes); arbitrary indirection
+    (cp/mv/heredoc-via-pipe) is out of scope and disclosed as such.
 
     Returns {} for passthrough, or
     {"action": "block", "message": "..."} to block.
@@ -578,7 +585,7 @@ def handle_pre_tool_call(
                     }
                 if _act in ("add", "patch") and len(_cont) > VERBOSE_THRESHOLD:
                     slug = _slugify(_cont)
-                    topic_file = MEMORY_DIR / f"{slug}.md"
+                    topic_file = _memory_dir() / f"{slug}.md"
                     return {
                         "action": "block",
                         "message": (
@@ -587,7 +594,7 @@ def handle_pre_tool_call(
                             "Route it instead:\n"
                             f"  1. Write the verbose detail to {topic_file}\n"
                             "     (use write_file — be verbose there)\n"
-                            f"  2. Append a ONE-LINE keyword entry to {MEMORY_MD}:\n"
+                            f"  2. Append a ONE-LINE keyword entry to {_memory_md()}:\n"
                             f"        kw1,kw2,kw3 \u2192 {slug}.md\n"
                             f"     (bare filename — MEMORY.md IS the index; there is no\n"
                             f"      separate memory-index.md, it was removed)\n\n"
@@ -734,7 +741,7 @@ def handle_pre_tool_call(
                     "Route it instead:\n"
                     f"  1. Write the verbose detail to {topic_file}\n"
                     "     (use write_file — be verbose there)\n"
-                    f"  2. Append a ONE-LINE keyword entry to {MEMORY_MD}:\n"
+                    f"  2. Append a ONE-LINE keyword entry to {_memory_md()}:\n"
                     f"        kw1,kw2,kw3 → {slug}.md\n"
                     f"     (bare filename — MEMORY.md IS the index; there is no\n"
                     f"      separate memory-index.md, it was removed)\n\n"

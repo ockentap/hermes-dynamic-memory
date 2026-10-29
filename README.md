@@ -212,7 +212,7 @@ enforces the structure:
 | Index clobbering | `replace` must match exactly one line; may never drop more than one entry |
 | Format drift | Lines validated on write: Unicode `→`, bare `*.md` targets, 5–20 keywords, no prose; rejections carry fix messages |
 | Path tricks | Bare filenames only — no paths, no `../` |
-| Write-vector bypass | `write_file`, `patch`, redirects, `tee`, `sed -i` all blocked when arguments reference the index |
+| Write-vector bypass | `write_file`, `patch`, redirects, `tee`, `sed -i` blocked when arguments hit a recognised write vector (best-effort against arbitrary shell indirection) |
 | Audit lockout | Read tools always pass (path-sharing with `write_file` was a real bug, fixed in 1.4.2 and regression-tested) |
 | Orphan rot | Validator flags unreachable files and dead pointers on every candidate write |
 

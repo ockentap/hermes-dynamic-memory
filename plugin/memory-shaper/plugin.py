@@ -44,6 +44,31 @@ from pathlib import Path
 
 PLUGIN_ID = "memory-shaper"
 
+def _hermes_home() -> Path:
+    """Resolve the active profile's home on EVERY call.
+
+    A process can serve several profiles; os.environ read at import time is
+    frozen to the launch profile and silently leaks the wrong memories dir
+    (teknium1 review 2026-10-29). hermes_constants.get_hermes_home() is the
+    profile-aware resolver in Hermes >= 0.22; fall back to env/home otherwise.
+    """
+    try:
+        from hermes_constants import get_hermes_home
+        return Path(get_hermes_home())
+    except Exception:
+        return Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
+
+
+def _memory_dir() -> Path:
+    return _hermes_home() / "memories"
+
+
+def _memory_md() -> Path:
+    return _memory_dir() / "MEMORY.md"
+
+
+# Module-level fallbacks exist only for import-time message strings; all
+# decision paths resolve through the functions above.
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
 MEMORY_DIR = HERMES_HOME / "memories"
 MEMORY_MD = MEMORY_DIR / "MEMORY.md"
@@ -176,13 +201,14 @@ def _validate_arrow_target(text: str) -> bool:
 # Set MEMORY_SHAPER_ALLOW_REWRITE=1 (env) or create touch-file
 # ~/.hermes/state/.memory_shaper_rewrite_approved to allow a full
 # rewrite of MEMORY.md (e.g. rebuilding from a verified script).
-MEMORY_REWRITE_APPROVAL_FILE = HERMES_HOME / "state" / ".memory_shaper_rewrite_approved"
+def _approval_file() -> Path:
+    return _hermes_home() / "state" / ".memory_shaper_rewrite_approved"
 
 def _rewrites_approved() -> bool:
     if os.environ.get("MEMORY_SHAPER_ALLOW_REWRITE") == "1":
         return True
     try:
-        return MEMORY_REWRITE_APPROVAL_FILE.exists()
+        return _approval_file().exists()
     except Exception:
         return False
 
@@ -197,7 +223,8 @@ def _normalize_path(p) -> str:
         return str(p)
 
 
-MEMORY_MD_RESOLVED = _normalize_path(MEMORY_MD)
+def _memory_md_resolved() -> str:
+    return _normalize_path(_memory_md())
 
 # User-approved wholesale-rewrite escape hatch.
 # The lock's refusal message tells the agent to "ask the user for explicit scope
@@ -206,15 +233,12 @@ MEMORY_MD_RESOLVED = _normalize_path(MEMORY_MD)
 #   1. env var MEMORY_SHAPER_ALLOW_REWRITE=1
 #   2. sentinel file ~/.hermes/state/.memory_shaper_rewrite_approved
 ALLOW_REWRITE_ENV = "MEMORY_SHAPER_ALLOW_REWRITE"
-APPROVAL_FILE = HERMES_HOME / "state" / ".memory_shaper_rewrite_approved"
-
-
 def _rewrite_approved() -> bool:
     """True if the user has approved a wholesale MEMORY.md rewrite."""
     if os.environ.get(ALLOW_REWRITE_ENV, "").strip() in ("1", "true", "yes"):
         return True
     try:
-        return APPROVAL_FILE.exists()
+        return _approval_file().exists()
     except Exception:
         return False
 
@@ -249,7 +273,7 @@ def _targets_memory_md(args: dict, tool_name: str = "") -> bool:
 
     # write_file / patch / edit: explicit path field — the ONLY reliable signal.
     p = args.get("path") or args.get("file_path") or ""
-    if pass_writes and p and _normalize_path(p) == MEMORY_MD_RESOLVED:
+    if pass_writes and p and _normalize_path(p) == _memory_md_resolved():
         return True
 
     cmd = (args.get("command") or "").strip()
@@ -340,6 +364,107 @@ def _slugify(text: str, max_words: int = 4) -> str:
 import logging
 _logger = logging.getLogger(__name__)
 
+def _check_patch_guard(old: str, content: str) -> dict | None:
+    """v0.22+ `patch`: content replaces the old_text SPAN inside one entry line;
+    the rest of the line is kept. Validate the RESULTING line, not the fragment —
+    checking the fragment alone is a whole-entry (replace) model, and it blocks
+    legitimate keyword-additions like old="heap" new="heap,gc,profiler".
+
+    Returns a block dict when the patch would produce a malformed index line.
+    Ambiguity mirrors the tool: old_text must select exactly one entry and occur
+    once inside it; otherwise the store refuses the write itself, so we pass and
+    let it (the file cannot change).
+    """
+    if not old:
+        return None  # schema-required old_text; missing -> the tool itself refuses
+    try:
+        entries = _memory_md().read_text().splitlines()
+    except Exception:
+        return None  # unreadable file: the write cannot corrupt what we cannot read
+    hits = [i for i, e in enumerate(entries) if old in e]
+    if len(hits) != 1:
+        return None  # 0 or ambiguous: the store rejects; the file stays untouched
+    line = entries[hits[0]]
+    if _is_separator_line(line) or not _is_arrow_line(line):
+        return None  # header/prose/separator: not an index entry we can corrupt
+    if line.count(old) != 1:
+        return None  # occurs more than once in the entry: the store rejects
+    # A patch must not introduce line breaks: the store keeps entries one per
+    # line, and a smuggled \n turns one entry into a corrupt multi-line blob.
+    if "\n" in (content or "") or "\r" in (content or ""):
+        return {
+            "action": "block",
+            "message": (
+                "[memory-shaper] patch refused: content contains a line break. "
+                "MEMORY.md entries are one line each; a patch that inserts \\n "
+                "splits an entry and corrupts the index."
+            ),
+        }
+    resulting = line.replace(old, content)
+    if "\n" in resulting or "\r" in resulting:
+        return {
+            "action": "block",
+            "message": (
+                "[memory-shaper] patch refused: the resulting entry would span "
+                "multiple lines. MEMORY.md entries are one line each."
+            ),
+        }
+    # Full index-line validation, not just the loose regex: the replacement may
+    # smuggle an invalid target (..md.txt, absolute path, prose keywords).
+    if _is_arrow_line(resulting) and _validate_arrow_target(resulting) \
+            and not ASCII_ARROW_LINE_RE.match(resulting.strip()):
+        return None
+    kw = (content[:40] + "\u2026") if len(content) > 40 else content
+    return {
+        "action": "block",
+        "message": (
+            "[memory-shaper] patch refused: the resulting index line would be malformed.\n"
+            f"  before: {line[:100]}\n"
+            f"  after:  {resulting[:100]}\n"
+            "Every MEMORY.md line must keep the form:\n"
+            "  keyword,keyword,keyword \u2192 file.md\n"
+            f"Your patch replaces {kw!r}; choose a replacement that keeps the "
+            "keywords comma-separated and the Unicode arrow + bare .md target intact."
+        ),
+    }
+
+
+def _check_replace_guard(old: str, content: str, memory_md_path: str | None = None) -> dict | None:
+    """Validate a replace/patch guard: match against entries, count check, separator rejection."""
+    target = Path(memory_md_path) if memory_md_path else _memory_md()
+    try:
+        current_text = target.read_text()
+    except Exception:
+        current_text = ""
+    entries = current_text.splitlines()
+    matches = [i for i, e in enumerate(entries) if old in e]
+    if len(matches) == 0:
+        return {"action": "block", "message": "[memory-shaper] replace refused: old_text did not match any entry line (0 matches)."}
+    if len(matches) > 1:
+        return {"action": "block", "message": f"[memory-shaper] replace refused: old_text matched {len(matches)} entry lines (expected exactly 1). Use a longer, unique substring."}
+    old_line = entries[matches[0]]
+    if _is_separator_line(old_line):
+        return {
+            "action": "block",
+            "message": (
+                "[memory-shaper] replace refused: old_text matched a separator "
+                "line emitted by the memory store, not an index entry. "
+                "Target the 'keyword,keyword \u2192 file.md' line itself."
+            ),
+        }
+    is_entry = _is_arrow_line(old_line)
+    new_lines = (content or "").splitlines() or [""]
+    if is_entry and len(new_lines) != 1:
+        return {
+            "action": "block",
+            "message": (
+                f"[memory-shaper] replace refused: target is one index line but "
+                f"content spans {len(new_lines)} lines. One line per topic file."
+            ),
+        }
+    return None
+
+
 def handle_pre_tool_call(
     tool_name: str,
     args: dict,
@@ -368,7 +493,10 @@ def handle_pre_tool_call(
         # Same logic as before: enforce verbose + arrow rules on memory() calls.
         action = (args.get("action") or "add").lower()
         target = (args.get("target") or "memory").lower()
-        content = (args.get("content") or "").strip()
+        # The real tool resolves content with "content wins if non-empty,
+        # else new_text fills it" (tools/memory_tool.py #90468). Validate the
+        # SAME value that will actually be written.
+        content = (args.get("content") or args.get("new_text") or "").strip()
         # old_text is required by replace and unused by the other actions. It was
         # previously referenced without ever being assigned, so every replace
         # raised NameError instead of being validated (caught by the separator
@@ -379,10 +507,107 @@ def handle_pre_tool_call(
             return {}
         if action == "remove":
             return {}
+
+        # === OPERATIONS[] support (for released Hermes — 2026-10-29 fix per teknium1 review) ===
+        # Released Hermes uses batch operations[{"action":"add|patch|remove", ...}] rather
+        # than top-level single-op fields. Validate each entry individually; early-return
+        # at :382-383 used to skip this entirely.
+        operations = args.get("operations") or []
+        if isinstance(operations, list) and len(operations) > 0:
+            # Re-run all checks on each operation element.
+            for idx, op in enumerate(operations):
+                if not isinstance(op, dict):
+                    continue
+                _act = (op.get("action") or "add").lower()
+                _tgt = (op.get("target") or "memory").lower()
+                # v0.22.5+: "new_text" is an ALIAS; the real tool lets "content"
+                # win when both are set (schema: "If both are set, 'content' wins").
+                # Reading new_text first here would validate a field that never writes.
+                _cont = ((op.get("content") or op.get("new_text")) or "").strip()
+                _old = (op.get("old_text") or "").strip()
+                if _tgt == "user":
+                    continue
+                if _act == "remove":
+                    continue
+                # v0.22+ patch = SPAN replacement (rest of the entry is kept);
+                # validate the resulting line, not the fragment (teknium1 review
+                # follow-up: treating patch as whole-entry replace overblocked
+                # legitimate keyword additions — proven by the tool oracle gate).
+                if _act == "patch":
+                    result = _check_patch_guard(old=_old, content=_cont)
+                    if result:
+                        return {**result, "message":
+                                f"[memory-shaper] Operation {idx}: " + result["message"]}
+                    continue
+                if not _cont:
+                    # Empty-content operation → let it pass (removes are already excluded above).
+                    continue
+                if _is_arrow_line(_cont):
+                    if not _validate_arrow_target(_cont):
+                        return {
+                            "action": "block",
+                            "message": (
+                                f"[memory-shaper] Operation {idx}: Malformed index line in operations[]. "
+                                f"Expected one line: keyword,kw → file.md\n"
+                                f"Rules:\n"
+                                f"  - file.md is a BARE filename in ~/.hermes/memories/\n"
+                                f"  - 5-20 comma-separated lowercase keywords\n"
+                                f"  - one line per topic file, no prose, no \u00a7 markers\n"
+                                f"  - Unicode arrow \u2192 ONLY (ASCII -> rejected)"
+                            ),
+                        }
+                    continue
+                if not _looks_like_keywords(_cont):
+                    ratio = _comma_word_ratio(_cont)
+                    return {
+                        "action": "block",
+                        "message": (
+                            f"[memory-shaper] Operation {idx}: Content looks like human-language prose, "
+                            f"not a keyword pointer.\n"
+                            f"  comma/word ratio: {ratio:.3f} (minimum {MIN_COMMA_WORD_RATIO})\n"
+                            f"  content length: {len(_cont)} chars\n"
+                            f"  first 80 chars: {_cont[:80]!r}\n\n"
+                            "MEMORY.md entries must be keyword lists separated by commas. "
+                            "Exact format (one line per topic file):\n"
+                            "  keyword,keyword,keyword \u2192 file.md\n"
+                            "where file.md is a bare filename in ~/.hermes/memories/ "
+                            "(no `memories/` prefix, no ~, no absolute path).\n\n"
+                            "For verbose detail: write it to ~/.hermes/memories/<slug>.md "
+                            "(use write_file), then append one keyword line to MEMORY.md."
+                        ),
+                    }
+                if _act in ("add", "patch") and len(_cont) > VERBOSE_THRESHOLD:
+                    slug = _slugify(_cont)
+                    topic_file = MEMORY_DIR / f"{slug}.md"
+                    return {
+                        "action": "block",
+                        "message": (
+                            f"[memory-shaper] Operation {idx}: Verbose content ({len(_cont)} chars) "
+                            "would bloat MEMORY.md.\n"
+                            "Route it instead:\n"
+                            f"  1. Write the verbose detail to {topic_file}\n"
+                            "     (use write_file — be verbose there)\n"
+                            f"  2. Append a ONE-LINE keyword entry to {MEMORY_MD}:\n"
+                            f"        kw1,kw2,kw3 \u2192 {slug}.md\n"
+                            f"     (bare filename — MEMORY.md IS the index; there is no\n"
+                            f"      separate memory-index.md, it was removed)\n\n"
+                            "Skip step 1 if the file already exists for that topic.\n"
+                            "USER.md is exempt — use target='user' for user-profile notes."
+                        ),
+                    }
+
+        # === Top-level single-op path (older Hermes: add/replace with content field) ===
         if not content:
             return {}
 
         _logger.info("[memory-shaper] memory() call, content_len=%d, action=%s", len(content), action)
+
+        if action == "patch":
+            # v0.22+ span semantics: validate the resulting entry line only.
+            result = _check_patch_guard(old=old_text, content=content)
+            if result:
+                return result
+            return {}
 
         # === REPLACE GUARD (2026-09-17 wipe fix; corrected 2026-09-17) ===
         # MEMORY.md entries are NEWLINE-delimited: one 'kw,kw → file.md' line per
@@ -394,10 +619,10 @@ def handle_pre_tool_call(
         # error. The previous version split on "\n§\n", which on a newline-
         # delimited file yields ONE entry containing the whole file — so any
         # old_text matched everything and the file was replaced wholesale.
-        if action == "replace" and old_text:
+        if action in ("replace", "patch") and old_text:
             # Read current file content from disk for boundary check
             try:
-                current_text = MEMORY_MD.read_text()
+                current_text = _memory_md().read_text()
             except Exception:
                 current_text = ""
             entries = current_text.splitlines()
@@ -500,7 +725,7 @@ def handle_pre_tool_call(
 
         if action in ("add", "replace") and len(content) > VERBOSE_THRESHOLD:
             slug = _slugify(content)
-            topic_file = MEMORY_DIR / f"{slug}.md"
+            topic_file = _memory_dir() / f"{slug}.md"
             return {
                 "action": "block",
                 "message": (

@@ -11,11 +11,20 @@ Pipeline, each run:
   1. TALLY.    Scan new assistant tool_call rows in ~/.hermes/state.db
                (incrementally, by rowid watermark) and count every argument
                reference to a topic file under ~/.hermes/memories/ as one
-               "access" of that file. Counts merge into the sidecar
-               memories/.access-tally.json — the index itself is never
-               annotated with counters.
-  2. ORDER.    Untagged index lines are sorted by access desc, tie-break
-               last-access desc, tie-break stable. !! and ! tagged lines never
+               "access" of that file. Two counters are kept per file in the
+               sidecar memories/.access-tally.json — the index itself is never
+               annotated:
+                 reads     lifetime total, kept forever
+                 days{}    per-UTC-day buckets, pruned after WINDOW_DAYS+15
+               First run after this schema was introduced backfills the day
+               buckets from state.db history (day buckets only, so the
+               lifetime totals are never double counted).
+  2. ORDER.    Untagged index lines are sorted by reads inside the rolling
+               WINDOW_DAYS window (default 30) desc, tie-break last-access
+               desc, tie-break stable. Lifetime reads still decide nothing —
+               they are reported, not ranked, so a file hammered during one
+               project cannot stay pinned to the top for months. !! and !
+               tagged lines never
                move. Sorting only permutes untagged lines among the slots they
                already occupy; header, blank lines, and any non-entry lines are
                frozen anchors.
@@ -60,6 +69,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 GRACE_DAYS = int(os.environ.get("WATCHDOG_GRACE_DAYS", "14"))
+# Rolling window used for ORDER. Global counts are kept alongside, forever, but
+# ordering is by reads inside this window so the top of the index reflects what
+# the agent actually needed this month, not what it needed once during a project.
+WINDOW_DAYS = int(os.environ.get("WATCHDOG_WINDOW_DAYS", "30"))
+BUCKET_KEEP_DAYS = WINDOW_DAYS + 15          # keep a little slack for the window edge
 SOFT_CAP_FRAC = float(os.environ.get("WATCHDOG_SOFT_CAP_FRAC", "0.95"))
 HARD_TARGET_FRAC = float(os.environ.get("WATCHDOG_HARD_TARGET_FRAC", "0.80"))
 DEFAULT_CAP = 2200                       # matches Hermes' memory_char_limit default
@@ -98,6 +112,47 @@ def parse_iso(s):
         return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     except (ValueError, TypeError):
         return None
+
+
+def day_key(dt):
+    """UTC calendar day for a bucket key."""
+    return dt.strftime("%Y-%m-%d")
+
+
+def window_cutoff(days=WINDOW_DAYS, now=None):
+    """First day (inclusive) of the rolling window."""
+    now = now or utcnow()
+    return day_key(now - timedelta(days=days - 1))
+
+
+def recent_reads(entry, files, days=WINDOW_DAYS, now=None):
+    """Reads inside the rolling window, summed from per-day buckets."""
+    e = files.get(entry["target"], {})
+    buckets = e.get("days") if isinstance(e, dict) else None
+    if not isinstance(buckets, dict):
+        return total_reads(entry, files)      # legacy entry, no buckets yet
+    cutoff = window_cutoff(days, now)
+    return sum(int(n) for day, n in buckets.items() if day >= cutoff)
+
+
+def total_reads(entry, files):
+    e = files.get(entry["target"], {})
+    return int(e.get("reads", 0)) if isinstance(e, dict) else 0
+
+
+def prune_buckets(files, keep_days=BUCKET_KEEP_DAYS, now=None):
+    cutoff = day_key((now or utcnow()) - timedelta(days=keep_days))
+    dropped = 0
+    for e in files.values():
+        if not isinstance(e, dict):
+            continue
+        buckets = e.get("days")
+        if not isinstance(buckets, dict):
+            continue
+        for day in [d for d in buckets if d < cutoff]:
+            buckets.pop(day, None)
+            dropped += 1
+    return dropped
 
 
 def log_line(paths, msg):
@@ -167,9 +222,9 @@ def topic_names(paths):
 def scan_access(paths, last_rowid, known):
     """Count topic-file mentions in new tool_call rows.
 
-    Returns ({name: (reads, last_iso)}, max_rowid_seen). One message counts at
-    most once per file (a single agent turn issuing 5 reads of one file is one
-    access event, not five).
+    Returns ({name: {reads, last, days{day: n}}}, max_rowid_seen). One message
+    counts at most once per file (a single agent turn issuing 5 reads of one
+    file is one access event, not five). `days` feeds the rolling window.
     """
     if not paths.db.exists():
         raise RuntimeError(f"state.db not found: {paths.db}")
@@ -224,23 +279,95 @@ def scan_access(paths, last_rowid, known):
                     mentioned.add(name)
         dt = datetime.fromtimestamp(float(ts or 0), tz=timezone.utc)
         stamp = iso(dt)
+        day = day_key(dt)
         for name in mentioned:
-            e = hits.setdefault(name, [0, ""])
-            e[0] += 1
-            if stamp > e[1]:
-                e[1] = stamp
-    return {k: tuple(v) for k, v in hits.items()}, max_id
+            e = hits.setdefault(name, {"reads": 0, "last": "", "days": {}})
+            e["reads"] += 1
+            if stamp > e["last"]:
+                e["last"] = stamp
+            e["days"][day] = e["days"].get(day, 0) + 1
+    return hits, max_id
 
 
 def merge_hits(files, hits):
     touched = 0
-    for name, (reads, last) in hits.items():
-        ent = files.setdefault(name, {"reads": 0, "last": ""})
-        ent["reads"] = int(ent.get("reads", 0)) + reads
-        if last > ent.get("last", ""):
-            ent["last"] = last
+    for name, h in hits.items():
+        ent = files.setdefault(name, {"reads": 0, "last": "", "days": {}})
+        if not isinstance(ent.get("days"), dict):
+            ent["days"] = {}
+        ent["reads"] = int(ent.get("reads", 0)) + int(h.get("reads", 0))
+        if h.get("last", "") > ent.get("last", ""):
+            ent["last"] = h["last"]
+        for day, n in (h.get("days") or {}).items():
+            ent["days"][day] = int(ent["days"].get(day, 0)) + int(n)
         touched += 1
     return touched
+
+
+def backfill_buckets(paths, known, upto_rowid, days=WINDOW_DAYS):
+    """One-time migration: fill per-day buckets from state.db history.
+
+    Writes DAY BUCKETS ONLY — never reads/last — so the permanent global totals
+    are not double counted. Only rows at or below the tally watermark, which the
+    incremental scan will never revisit, so nothing is counted twice. Returns
+    (files_filled, rows_scanned).
+    """
+    if not paths.db.exists():
+        return 0, 0
+    since = (utcnow() - timedelta(days=days)).timestamp()
+    conn = sqlite3.connect(f"file:{paths.db}?mode=ro", uri=True, timeout=10)
+    try:
+        rows = conn.execute(
+            "SELECT tool_calls, timestamp FROM messages "
+            "WHERE id <= ? AND timestamp >= ? AND tool_calls IS NOT NULL "
+            "AND tool_calls NOT IN ('', '[]') ORDER BY id",
+            (upto_rowid, since),
+        ).fetchall()
+    finally:
+        conn.close()
+    hits = {}
+    for tc, ts in rows:
+        try:
+            calls = json.loads(tc)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(calls, dict):
+            calls = [calls]
+        if not isinstance(calls, list):
+            continue
+        mentioned = set()
+        for c in calls:
+            if not isinstance(c, dict):
+                continue
+            args = c.get("args")
+            if args is None:
+                args = (c.get("function") or {}).get("arguments")
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except (json.JSONDecodeError, TypeError):
+                    args = None
+            blob = None
+            if isinstance(args, dict):
+                try:
+                    blob = json.dumps(args, ensure_ascii=False)
+                except (TypeError, ValueError):
+                    blob = None
+            elif isinstance(args, str):
+                blob = args
+            if not blob:
+                continue
+            for m in NAME_RE.finditer(blob):
+                name = m.group(1) + ".md"
+                if name in known:
+                    mentioned.add(name)
+        if not mentioned:
+            continue
+        day = day_key(datetime.fromtimestamp(float(ts or 0), tz=timezone.utc))
+        for name in mentioned:
+            hits.setdefault(name, {}).setdefault(day, 0)
+            hits[name][day] += 1
+    return hits, len(rows)
 
 
 # -------------------------------------------------------------- index -----
@@ -299,8 +426,11 @@ def compute_order(lines, body_start, entries, files):
     if not slots:
         return lines, 0, 0
     ranked = [entries[p] for p in slots]    # seeded in position order (stable)
+    # Ordering key: reads inside the rolling window (primary), then last access,
+    # then existing position (sort stability). Global totals stay recorded but
+    # no longer decide order.
     ranked.sort(key=lambda e: access_of(e, files)[1], reverse=True)
-    ranked.sort(key=lambda e: access_of(e, files)[0], reverse=True)
+    ranked.sort(key=lambda e: recent_reads(e, files), reverse=True)
     out = list(lines)
     moved = 0
     for pos, e in zip(slots, ranked):
@@ -456,18 +586,20 @@ def write_archive_log(paths, archived):
 def status_report(paths, files, entries, cap, size):
     untagged = [e for e in entries.values() if not e["tag"]]
     tagged = [e for e in entries.values() if e["tag"]]
-    ranked = sorted(untagged, key=lambda e: access_of(e, files), reverse=True)
+    ranked = sorted(untagged, key=lambda e: (recent_reads(e, files), access_of(e, files)[1]),
+                    reverse=True)
     lines = [f"index: {size}/{cap} chars ({100.0*size/max(cap,1):.0f}%) — "
              f"soft {int(SOFT_CAP_FRAC*cap)}, prune-to {int(HARD_TARGET_FRAC*cap)}",
              f"entries: {len(entries)} ({len(tagged)} tagged, {len(untagged)} untagged)",
-             "", "top 5 untagged:"]
+             f"order: reads inside the last {WINDOW_DAYS} days, then last access",
+             "", f"top 5 untagged (last {WINDOW_DAYS}d / lifetime):"]
     for e in ranked[:5]:
         r, l = access_of(e, files)
-        lines.append(f"  {r:>4}  {l:<20}  {e['target']}")
+        lines.append(f"  {recent_reads(e, files):>4} / {r:<5}  {l:<20}  {e['target']}")
     lines.append("bottom 5 (prune order unless in grace):")
     for e in list(ranked)[-5:]:
         r, l = access_of(e, files)
-        lines.append(f"  {r:>4}  {l:<20}  {e['target']}")
+        lines.append(f"  {recent_reads(e, files):>4} / {r:<5}  {l:<20}  {e['target']}")
     return "\n".join(lines)
 
 
@@ -498,6 +630,26 @@ def main():
     # 1. tally new accesses
     known = topic_names(paths)
     last_rowid = int(doc["_meta"].get("last_rowid", 0))
+
+    # 1a. one-time migration: per-day buckets for the rolling window
+    backfill_rows = 0
+    if not doc["_meta"].get("buckets_backfilled"):
+        try:
+            bf, backfill_rows = backfill_buckets(paths, known, last_rowid)
+        except Exception as exc:           # never let the migration break the run
+            log_line(paths, f"warn: bucket backfill skipped: {exc}")
+            bf = {}
+        for name, days in bf.items():
+            ent = files.setdefault(name, {"reads": 0, "last": "", "days": {}})
+            if not isinstance(ent.get("days"), dict):
+                ent["days"] = {}
+            for day, n in days.items():
+                ent["days"][day] = int(ent["days"].get(day, 0)) + int(n)
+        if not args.dry_run:
+            doc["_meta"]["buckets_backfilled"] = iso()
+        doc["_meta"]["schema"] = 2
+        doc["_meta"]["backfill_rows"] = backfill_rows
+
     try:
         hits, max_id = scan_access(paths, last_rowid, known)
     except RuntimeError as exc:
@@ -519,6 +671,9 @@ def main():
     if args.dry_run:
         pre = content_chars(lines, body_start)
         post = content_chars(new_text.split("\n"), body_start)
+        if backfill_rows:
+            print(f"DRY-RUN: would backfill {backfill_rows} historical rows into "
+                  f"{WINDOW_DAYS}-day buckets (one-time migration)")
         print(f"DRY-RUN: {len(hits)} files with new reads (rows>{last_rowid}); "
               f"{n_moved}/{n_slots} untagged lines would move; size {pre} -> {post} "
               f"of {cap}")
@@ -536,6 +691,7 @@ def main():
     #    archive log, then index (with backup), then tally.
     #    The archive index rebuild is unconditional so a manually-restored
     #    file's line drops out even when nothing new is archived this run.
+    prune_buckets(files)
     write_archive_log(paths, archived)
     if new_text != text:
         shutil.copy2(paths.index,

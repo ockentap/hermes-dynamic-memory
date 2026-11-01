@@ -80,12 +80,14 @@ schedule (daily is plenty; it is silent when it has nothing to report):
 ```
  state.db tool-call history        memories/.access-tally.json
  ────────────────────────  tally    ─────────────────────────────
-   incremental scan,           →     {file: {reads, last}}
-   one access per message            (sidecar — never in the index)
+   incremental scan,           →     {file: {reads, days{}, last}}
+   one access per message            reads = lifetime, kept forever
+                                     days  = per-day buckets (rolling window)
                                           │
                                           ▼
- MEMORY.md untagged lines          sort hot-first, in place
- ──────────────────────────        (!! / ! never move)
+ MEMORY.md untagged lines          sort by reads inside the last 30 days,
+ ──────────────────────────        tie-break last access
+                                   (!! / ! never move)
                                           │
                               over 95% of char cap?
                                           ▼

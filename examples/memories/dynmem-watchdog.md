@@ -5,10 +5,13 @@ It runs as a scheduled job, usually once a day.
 
 ## What it does
 1. **Tally** — scans new tool calls in the session database for arguments that
-   mention a topic filename, and records one access per message. The watermark
-   lives in a sidecar file, so runs are incremental.
-2. **Order** — sorts untagged index lines by read count, then last access. Tagged
-   lines never move.
+   mention a topic filename, and records one access per message. Two counters are
+   kept in the sidecar: `reads` (lifetime) and `days{}` (per-UTC-day buckets). The
+   watermark lives in the same sidecar, so runs are incremental.
+2. **Order** — sorts untagged index lines by reads inside the rolling window
+   (default 30 days), then by last access. Lifetime reads are reported, not
+   ranked: a file hammered during one project does not stay at the top for
+   months. Tagged lines never move.
 3. **Archive** — only when the index body passes about 95% of its character cap.
    It moves the least-accessed eligible entries to `archived memories/`, records
    their lines verbatim in `archived-memories.md`, and writes a timestamped backup

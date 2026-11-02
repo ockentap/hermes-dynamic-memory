@@ -98,11 +98,11 @@ MIN_COMMA_WORD_RATIO = 0.5
 #             ASCII_ARROW_LINE_RE exists solely to fail with a *specific* message
 #             ("use → not ->") instead of a generic format complaint.
 ARROW_LINE_RE = re.compile(
-    r"^[a-z0-9,\s-]+\s*→\s+~?/?[\w./~%-]+\.md\s*$",
+    r"^[a-z0-9,\s./:_-]+\s*→\s+~?/?[\w./~%-]+\.md\s*$",
     re.IGNORECASE,
 )
 ASCII_ARROW_LINE_RE = re.compile(
-    r"^[a-z0-9,\s-]+\s*->\s+~?/?[\w./~%-]+\.md\s*$",
+    r"^[a-z0-9,\s./:_-]+\s*->\s+~?/?[\w./~%-]+\.md\s*$",
     re.IGNORECASE,
 )
 

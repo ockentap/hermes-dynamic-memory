@@ -212,7 +212,9 @@ If the transcript shows `search_files` instead of `read_file` on the expected fi
 
 The format is **newline-delimited**: one entry per line. A newline *is* the entry boundary, so no separator token is needed or wanted, and `§` must never appear as content.
 
-**But Hermes' built-in memory store disagrees, and this is not optional.** `tools/memory_tool_store.py` hardcodes `ENTRY_DELIMITER = "\n§\n"` and joins entries with it on every write. So any file the `memory` tool has written more than once will contain a bare `§` line between entries, whether you want it or not.
+**Stock Hermes disagrees, and you live with it — no core patch.** `tools/memory_tool_store.py` hardcodes `ENTRY_DELIMITER = "\n§\n"` and joins entries with it on every write, so any file the `memory` tool has written more than once contains a bare `§` line between entries, whether you want it or not.
+
+The consequence to know: the index header is then ONE entry — every header line, from the title down to the structural `keyword,keyword,keyword → file.md` line, belongs to a single §-joined entry. The plugin handles exactly that: a `remove` / `replace` / `patch` whose `old_text` lands anywhere inside the header entry is refused (the rewrite-approval sentinel is the deliberate escape hatch for rebuilding the index). Nothing here requires patching Hermes; `scripts/patches/` is background only, not an install step.
 
 The correct handling is to **recognise and ignore** those lines, not to fight them:
 

@@ -254,12 +254,19 @@ _TEMPLATE_LINE_MSG = (
 
 _TEMPLATE_NOTE_PREFIX = "TEMPLATE \u2014"
 
-# The example entries shipped inside MEMORY.template.md. They are placeholders for
-# the reader, not memories: once the user writes a real entry they must go, or the
-# index carries lines pointing at demo files that do not exist.
-_TEMPLATE_EXAMPLES = {
-    "python-env.md", "js-toolchain.md", "java-performance.md", "deploy-pipeline.md",
-    "laptop-hardware.md", "home-network.md", "git-workflow.md",
+# The example entries shipped inside examples/MEMORY.template.md, verbatim. A line
+# is only ever deleted when it still matches this text EXACTLY. Matching on the
+# target filename alone deleted a user's own entry for the same file on the next
+# memory write (teknium1 review, 2026-11-02): someone who wrote their own
+# home-network.md line lost it to our cleanup.
+_TEMPLATE_EXAMPLE_LINES = {
+    "python,venv,packaging,poetry,ruff,pytest,typing,imports \u2192 python-env.md",
+    "javascript,typescript,npm,bundler,webpack,vite,node,lint \u2192 js-toolchain.md",
+    "java,springframework,jvm,garbagecollection,heap,profiling,jmx \u2192 java-performance.md",
+    "deploy,release,pipeline,staging,rollback,canary,ci \u2192 deploy-pipeline.md",
+    "laptop,hardware,ram,ssd,thermal,battery,upgrade \u2192 laptop-hardware.md",
+    "network,router,wifi,dns,subnet,vpn,firewall \u2192 home-network.md",
+    "git,branch,rebase,merge,conflict,cherrypick,worktree,hook \u2192 git-workflow.md",
 }
 
 
@@ -272,6 +279,65 @@ def _is_template_target(old_text: str) -> bool:
         return True
     template = "keyword,keyword,keyword \u2192 file.md"
     return len(t) >= 24 and t in template
+
+
+_HEADER_MSG = (
+    "[memory-shaper] refused: that text is part of the index header. On the stock "
+    "memory store the header is a single entry — the store joins entries with a "
+    "'\u00a7' line, so every header line belongs to one entry — and an edit whose "
+    "old_text lands anywhere inside it rewrites or deletes the whole preamble in "
+    "one call. Editing the header needs explicit user approval: set "
+    "MEMORY_SHAPER_ALLOW_REWRITE=1 or create "
+    "~/.hermes/state/.memory_shaper_rewrite_approved."
+)
+
+
+def _header_text() -> str:
+    """The index preamble: every line before the first entry, plus the template line.
+
+    The preamble ends at the structural 'keyword,keyword,keyword → file.md' line,
+    which is included: it is the header's last line and the anchor the watchdog,
+    validator and memory tool use to find the first entry.
+    """
+    try:
+        lines = _memory_md().read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return ""
+    head: list[str] = []
+    for line in lines:
+        s = line.strip()
+        if _is_template_target(s):
+            head.append(s)
+            break
+        if _is_arrow_line(s):
+            break
+        head.append(s)
+    return "\n".join(head)
+
+
+def _is_header_text(old_text: str) -> bool:
+    """True when *old_text* selects the header block and no real entry line.
+
+    A token that appears both in the header and on a keyword line is left to the
+    store's own uniqueness rule: it already refuses an ambiguous match, and refusing
+    here would block legitimate edits that happen to share a word with the preamble
+    (the header names files such as memory-consolidation-cron.md).
+    """
+    t = (old_text or "").strip().lstrip("`")
+    if not t:
+        return False
+    head = _header_text()
+    if not head or t not in head:
+        return False
+    try:
+        lines = _memory_md().read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return True
+    return not any(_is_arrow_line(line) and t in line for line in lines)
+
+
+def _header_message(old_text: str) -> str:
+    return _TEMPLATE_LINE_MSG if _is_template_target(old_text) else _HEADER_MSG
 
 
 def _autoclean_template_lines() -> None:
@@ -293,10 +359,11 @@ def _autoclean_template_lines() -> None:
         if s.startswith(_TEMPLATE_NOTE_PREFIX):
             changed = True
             continue
-        m = re.search(r"\u2192\s*([A-Za-z0-9_.\-]+\.md)\s*$", s)
-        if m and m.group(1) in _TEMPLATE_EXAMPLES and not (memdir / m.group(1)).exists():
-            changed = True
-            continue
+        if s in _TEMPLATE_EXAMPLE_LINES:
+            target = s.rsplit("\u2192", 1)[-1].strip()
+            if not (memdir / target).exists():
+                changed = True
+                continue
         keep.append(line)
     if not changed:
         return
@@ -446,8 +513,8 @@ def _check_patch_guard(old: str, content: str) -> dict | None:
     """
     if not old:
         return None  # schema-required old_text; missing -> the tool itself refuses
-    if _is_template_target(old) and not _rewrite_approved():
-        return {"action": "block", "message": _TEMPLATE_LINE_MSG}
+    if (_is_template_target(old) or _is_header_text(old)) and not _rewrite_approved():
+        return {"action": "block", "message": _header_message(old)}
     try:
         entries = _memory_md().read_text().splitlines()
     except Exception:
@@ -584,8 +651,8 @@ def handle_pre_tool_call(
         if target == "user":
             return {}
         if action == "remove":
-            if _is_template_target(old_text) and not _rewrite_approved():
-                return {"action": "block", "message": _TEMPLATE_LINE_MSG}
+            if (_is_template_target(old_text) or _is_header_text(old_text)) and not _rewrite_approved():
+                return {"action": "block", "message": _header_message(old_text)}
             return {}
 
         # === OPERATIONS[] support (for released Hermes — 2026-10-29 fix per teknium1 review) ===
@@ -608,9 +675,9 @@ def handle_pre_tool_call(
                 if _tgt == "user":
                     continue
                 if _act == "remove":
-                    if _is_template_target(_old) and not _rewrite_approved():
+                    if (_is_template_target(_old) or _is_header_text(_old)) and not _rewrite_approved():
                         return {"action": "block", "message":
-                                f"[memory-shaper] Operation {idx}: " + _TEMPLATE_LINE_MSG}
+                                f"[memory-shaper] Operation {idx}: " + _header_message(_old)}
                     continue
                 # v0.22+ patch = SPAN replacement (rest of the entry is kept);
                 # validate the resulting line, not the fragment (teknium1 review
@@ -709,9 +776,10 @@ def handle_pre_tool_call(
             except Exception:
                 current_text = ""
             entries = current_text.splitlines()
-            # The template line is structural: only an approved rewrite may touch it.
-            if _is_template_target(old_text) and not _rewrite_approved():
-                return {"action": "block", "message": _TEMPLATE_LINE_MSG}
+            # The header (and its structural template line) is one entry on the stock
+            # store: only an approved rewrite may touch it.
+            if (_is_template_target(old_text) or _is_header_text(old_text)) and not _rewrite_approved():
+                return {"action": "block", "message": _header_message(old_text)}
             matches = [i for i, e in enumerate(entries) if old_text in e]
             if len(matches) == 0:
                 return {"action": "block", "message": "[memory-shaper] replace refused: old_text did not match any entry line (0 matches)."}

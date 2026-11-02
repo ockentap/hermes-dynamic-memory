@@ -18,7 +18,8 @@ metadata:
   second profile).
 - A dynmem install that is writing `§` paragraph separators, or whose header
   block disappeared after a memory edit.
-- After `hermes update`, to re-apply the flat-separator patch and re-verify.
+- After `hermes update`, to re-verify that the hook still loads and the index
+  still validates.
 
 Not for: using dynmem day to day (that is the `dynamic-memory` skill), or
 repairing an index — use the integrity checker for that.
@@ -26,36 +27,32 @@ repairing an index — use the integrity checker for that.
 Dynmem is a keyword index in the system prompt plus topic files on disk. Stock
 Hermes does not behave that way out of the box: it joins memory entries with a
 `\n§\n` paragraph delimiter, so the index header is ONE entry and a single
-`remove` deletes it. Two pieces fix that — a small core patch and the plugin.
+`remove` deletes it. The plugin fixes that from the hook side — it refuses an
+edit whose `old_text` lands inside the header entry and ignores the `§` lines —
+so no Hermes file is patched.
 
 Do them in this order. Every step below was verified on stock v0.22.5.
 
 ## 0. Prerequisites
 
 - Hermes ≥ 0.22.2 in any form (CLI install or Docker image).
-- The dynmem repo checkout (`hermes-dynamic-memory`) — it holds the patch, the
-  plugin, the skill, the scripts and the templates.
-- Know the install directory (not `~/.hermes`): e.g. `/opt/hermes` in the Docker
-  image, `~/.hermes/hermes-agent` for a git install.
+- The dynmem repo checkout (`hermes-dynamic-memory`) — it holds the plugin, the
+  skill, the scripts and the templates.
+- Know `$HERMES_HOME` (not necessarily the install directory): `~/.hermes` for
+  a normal install, `/opt/data` in the Docker image.
 
-## 1. Apply the flat-separator patch
+## 1. No core patch — the stock store is fine
 
-```bash
-cd <install-dir>                      # /opt/hermes for Docker
-patch -p1 --dry-run -i <repo>/scripts/patches/0001-flat-memory-separator.patch
-git apply -p1 <repo>/scripts/patches/0001-flat-memory-separator.patch
-```
+Do not modify `tools/memory_tool_store.py`. On the stock store the header block
+is a single `§`-joined entry; the plugin's guard refuses any `remove` / `replace`
+/ `patch` whose `old_text` falls inside that entry, so the header cannot be
+wiped through the memory tool, and the index reads fine with `§` lines present.
+`scripts/patches/0001-flat-memory-separator.patch` is kept in the repo as
+background only — it is not an install step.
 
-What it changes in `tools/memory_tool_store.py`: parse one entry per LINE when
-the file has no `§`; learn the join separator from the file's bytes and keep it
-sticky; use it for budgets and the prompt block.
-
-**Restart the process afterwards.** A running gateway keeps the old module in
-memory — before the restart writes still emit `§`. In the Docker image the
-gateway is an s6 service: `hermes gateway restart`.
-
-Re-apply after every `hermes update`. If the base version moved, use
-`git apply --check` first and fix the hunks rather than forcing them.
+If you do want the flat store (fewer separator lines, one entry per line in the
+prompt view), apply that patch yourself and re-apply it after every update. The
+plugin does not need it either way.
 
 ## 2. Install the plugin
 
@@ -105,17 +102,19 @@ python3 $HERMES_HOME/dynmem-scripts/dynmem-watchdog.py --home $HERMES_HOME --dry
 Then the only test that matters — a write and a read in two sessions:
 
 1. Ask the agent to save one durable fact (one topic file, one index line).
-2. Check the file: **no `§` lines**, header intact, one new entry, template
-   placeholders gone.
+2. Check the file: header intact, one new entry, template placeholders gone.
+   On an unpatched store a `§` line between entries is expected and harmless —
+   it is the store's separator, not a broken index.
 3. New session, ask for the fact from memory. It should answer and name the
    topic file it read.
 
 ## Pitfalls
 
-- **No `§` in the output after a write** is the pass condition. If `§` appears,
-  the patch is not in the running process — restart the gateway, then retest.
-- **Do not skip the patch** and hope the plugin covers it. The plugin guards, the
-  store writes; on a `§` store the whole header block is one entry.
+- **A `§` line after a write is normal on a stock store.** It is the store's
+  entry separator. The pass condition is the header plus one new entry; if you
+  also want a flat file, that is the optional patch, not a requirement.
+- **Do not patch Hermes to install this.** The plugin guards the header entry
+  from the hook side, which is what stops a wipe; the store patch is background.
 - **`docker cp` preserves ownership** (uid 1001, mode 0600). A service running as
   another user then cannot read the seeded files: `chown -R` them to the runtime
   user after copying.
@@ -127,5 +126,7 @@ Then the only test that matters — a write and a read in two sessions:
   `$HERMES_HOME/state/.memory_shaper_rewrite_approved`.
 - **Watchdog scheduling**: it is a plain script — run it from cron with
   `--home`, and it stays silent unless it archives something or the cap fires.
-- **Updates**: `hermes update` replaces the patched file. Re-apply, restart, and
-  re-run the write test; do not assume the format survived.
+- **Updates**: after `hermes update`, re-run the write test and
+  `scripts/test_hook_cases.py`; do not assume the hook still loads. If you did
+  apply the optional store patch, `hermes update` replaced it — re-apply it or
+  not, the plugin does not depend on it.

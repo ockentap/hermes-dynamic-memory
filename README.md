@@ -232,17 +232,15 @@ Beyond that, split by profile or by tier, not by reaching for a database.
 **From the plugin catalog** (once the entry is merged): `hermes plugins install
 dynamic-memory` — installs this repo pinned at a reviewed commit.
 
-0. **Patch the store first (stock Hermes).** The native memory store joins
-   entries with a `§` line, which makes the whole index header ONE entry — a
-   single `remove` then deletes every header line. Apply the one-file patch and
-   restart:
-   ```bash
-   cd <hermes-install-dir>      # /opt/hermes in the Docker image
-   git apply -p1 scripts/patches/0001-flat-memory-separator.patch
-   hermes gateway restart       # a running gateway keeps the old module
-   ```
-   See [`scripts/patches/README.md`](scripts/patches/README.md). Re-apply after
-   every `hermes update`.
+**No core patch.** Stock Hermes joins memory entries with a `§` line, so the
+whole index header is ONE entry and a single `remove` would delete every header
+line at once. The plugin handles that from the hook side: it refuses any
+`remove` / `replace` / `patch` whose `old_text` lands inside the header entry
+(unless you approve a rewrite) and treats `§` lines as separators it ignores, so
+the index works on an unmodified store.
+`scripts/patches/0001-flat-memory-separator.patch` is kept as background only —
+no step here asks you to apply it.
+
 1. **Plugin (manual)** — copy `plugin/memory-shaper/` to `~/.hermes/plugins/`,
    enable in `config.yaml`. Requires Hermes with pre/post tool-call hooks and
    `tool_execution` middleware support (the write guard runs as middleware).
@@ -278,8 +276,9 @@ distinguishable.
 This project rides on Hermes' native memory file, so **Hermes updates can break
 it.** Verified against v0.21.3 and v0.22.5. The native behaviours that force
 workarounds: `ENTRY_DELIMITER` is hardcoded in the store (bare `§` lines appear
-between entries; no plugin can remove them, which is why this repo ships
-`scripts/patches/0001-flat-memory-separator.patch` for stock installs), the
+between entries; no plugin can remove them, which is why the store patch exists
+in `scripts/patches/` as background — the hook refuses header edits instead of
+requiring a patched store), the
 injected block ships with no routing instruction, the default cap is 2,200 chars
 (then the tool refuses writes and pushes "consolidate"),
 `read_file`/`write_file` share a `path` argument (path-based locks must

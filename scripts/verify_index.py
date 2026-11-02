@@ -133,8 +133,10 @@ def main() -> int:
         if len(kws) != len(set(kws)):
             bad.append(("DUPLICATE KEYWORDS", line))
             continue
-        if any(k != k.lower() or " " in k for k in kws):
-            bad.append(("KEYWORD NOT LOWERCASE/CONTAINS SPACE", line))
+        # Case is not a format error: kWh, VT, EPBiH and ModuleNotFoundError are
+        # real routing keywords. Prose is what we reject, and prose means spaces.
+        if any(" " in k or len(k) > 48 for k in kws):
+            bad.append(("KEYWORD CONTAINS SPACE OR TOO LONG", line))
             continue
         ok.append(line)
 

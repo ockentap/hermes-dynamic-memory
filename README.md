@@ -220,12 +220,12 @@ enforces the structure:
 
 Every entry carries at most 20 keywords, and they come from two hands:
 
-- **5 locked** — the analyzer mines them from the file body (identifiers,
-  hostnames, versions, code spans; unique terms first, then one-mention fillers so
-  a thin note still gets five). They are recorded in
-  `memories/.keyword-provenance.json`, and they are the *pattern* a weaker model
-  copies: the refine prompt renders them marked "do not repeat, do not remove".
-- **5–15 model-chosen** — on top of the locks, bounded by the room left on the line.
+- **5 locked** — the **first five keywords of every line**, by position, so every
+  entry has them with no sidecar to bootstrap. They are owned by the optimization
+  pass: it fills and swaps them (a swap needs a real margin), and no model may add
+  or remove one. They are also the *pattern* a weaker model copies — the refine
+  prompt renders them as the locked block and lets the model write only after them.
+- **5–15 model-chosen** — after the locked block, bounded by the room left on the line.
 - **20 is enforced, not asked for** — the applier clamps, a model reply is trimmed,
   and the write hook refuses a 21st keyword with a message that names the count. A
   line already at 20 accepts nothing until a human removes a keyword; trimming

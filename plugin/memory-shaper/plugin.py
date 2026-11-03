@@ -202,6 +202,33 @@ def _validate_arrow_target(text: str) -> bool:
     return True
 
 
+def _keyword_band_error(text: str) -> str | None:
+    """A specific message when an index line's keyword count is out of band.
+
+    `_validate_arrow_target` can only say yes/no; on a 21-keyword line the generic
+    "malformed index line" message sends the agent hunting through format rules for
+    a fault that is simply "too many words". The 20 ceiling is the safeguard the
+    user asked for, so it gets its own message, on every write path.
+    """
+    m = re.match(r"^(.+?)\s*→\s*(\S+)\s*$", (text or "").strip())
+    if not m:
+        return None
+    kws = [k.strip() for k in m.group(1).split(",") if k.strip()]
+    if MIN_KEYWORDS <= len(kws) <= MAX_KEYWORDS:
+        return None
+    if len(kws) > MAX_KEYWORDS:
+        return (
+            f"[memory-shaper] {len(kws)} keywords: an index line carries at most "
+            f"{MAX_KEYWORDS}. Five of them are the locked automatic keywords; the "
+            "rest are the model's own (5-15). A line already at "
+            f"{MAX_KEYWORDS} accepts nothing until a human removes a keyword."
+        )
+    return (
+        f"[memory-shaper] {len(kws)} keywords: an index line carries at least "
+        f"{MIN_KEYWORDS}. Propose edits, do not strip a line below the floor."
+    )
+
+
 # User-approved wholesale rewrite mechanism (2026-09-17 fix).
 # Set MEMORY_SHAPER_ALLOW_REWRITE=1 (env) or create touch-file
 # ~/.hermes/state/.memory_shaper_rewrite_approved to allow a full
@@ -589,6 +616,9 @@ def _check_patch_guard(old: str, content: str) -> dict | None:
     if _is_arrow_line(resulting) and _validate_arrow_target(resulting) \
             and not ASCII_ARROW_LINE_RE.match(resulting.strip()):
         return None
+    band = _keyword_band_error(resulting)
+    if band:
+        return {"action": "block", "message": band}
     kw = (content[:40] + "\u2026") if len(content) > 40 else content
     return {
         "action": "block",
@@ -727,6 +757,10 @@ def handle_pre_tool_call(
                     continue
                 if _is_arrow_line(_cont):
                     if not _validate_arrow_target(_cont):
+                        band = _keyword_band_error(_cont)
+                        if band:
+                            return {"action": "block",
+                                    "message": f"[memory-shaper] Operation {idx}: " + band}
                         return {
                             "action": "block",
                             "message": (
@@ -868,6 +902,9 @@ def handle_pre_tool_call(
             # Validate only that the target is a legal filename and pass through.
             if _validate_arrow_target(content):
                 return {}
+            band = _keyword_band_error(content)
+            if band:
+                return {"action": "block", "message": band}
             # Distinguish "you used the wrong arrow" from "your line is
             # malformed" so the agent gets an actionable fix, not a scavenger
             # hunt through the format rules (2026-09-17: ASCII is now banned).

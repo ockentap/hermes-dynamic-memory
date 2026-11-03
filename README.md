@@ -216,6 +216,24 @@ enforces the structure:
 | Audit lockout | Read tools always pass (path-sharing with `write_file` was a real bug, fixed in 1.4.2 and regression-tested) |
 | Orphan rot | Validator flags unreachable files and dead pointers on every candidate write |
 
+### Keyword budget: five locked, 5–15 chosen, 20 hard ceiling
+
+Every entry carries at most 20 keywords, and they come from two hands:
+
+- **5 locked** — the analyzer mines them from the file body (identifiers,
+  hostnames, versions, code spans; unique terms first, then one-mention fillers so
+  a thin note still gets five). They are recorded in
+  `memories/.keyword-provenance.json`, and they are the *pattern* a weaker model
+  copies: the refine prompt renders them marked "do not repeat, do not remove".
+- **5–15 model-chosen** — on top of the locks, bounded by the room left on the line.
+- **20 is enforced, not asked for** — the applier clamps, a model reply is trimmed,
+  and the write hook refuses a 21st keyword with a message that names the count. A
+  line already at 20 accepts nothing until a human removes a keyword; trimming
+  existing words to make room is never automatic.
+
+Removing a locked keyword is a human decision: the model may never subtract one, and
+the deterministic swap only replaces one when a candidate beats it by a real margin.
+
 ## Cost
 
 | | |

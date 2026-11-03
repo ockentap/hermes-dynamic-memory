@@ -118,9 +118,10 @@ Then the only test that matters — a write and a read in two sessions:
 - **`docker cp` preserves ownership** (uid 1001, mode 0600). A service running as
   another user then cannot read the seeded files: `chown -R` them to the runtime
   user after copying.
-- **Reading MEMORY.md through the shell** is allowed only as a simple read
-  command. Compound commands (`cat X; echo y`) or pipes get refused by the
-  plugin's lock, which looks like a broken file but is the guard working.
+- **Reading MEMORY.md through the shell** is always allowed, pipes and chains
+  included (`grep … | head`). What the lock refuses is a write vector aimed at
+  the index — a redirect to it, `| tee MEMORY.md`, `sort -o MEMORY.md`,
+  `sed -i … MEMORY.md`, or a command substitution in a command that names it.
 - **Protected lines**: removing or replacing the structural template line is
   refused without `MEMORY_SHAPER_ALLOW_REWRITE=1` or
   `$HERMES_HOME/state/.memory_shaper_rewrite_approved`.

@@ -88,6 +88,11 @@ VERBOSE_THRESHOLD = 140  # chars; anything above this is "verbose"
 # ratio >= 2.0 (e.g. 8 commas / 3 words = 2.67). Old verbose entries had
 # ratios like 0.01-0.10. Threshold 0.5 is a safe floor.
 MIN_COMMA_WORD_RATIO = 0.5
+# The index format the docs, the error messages and dynmem's own tooling all state:
+# 5-20 keywords per entry. _validate_arrow_target accepted 1-25, so a 21-keyword line
+# (or a single-word one) passed every check while the message promised otherwise.
+MIN_KEYWORDS = 5
+MAX_KEYWORDS = 20
 
 # `keywords → path` line shape (one keyword arrow entry).
 # Fix: [a-z0-9,\s-]+ to allow digits and hyphens inside keywords (e.g. dates, slugs)
@@ -188,7 +193,7 @@ def _validate_arrow_target(text: str) -> bool:
     kws = [k.strip() for k in keywords.split(",") if k.strip()]
     if not kws:
         return False
-    if not (1 <= len(kws) <= 25):
+    if not (MIN_KEYWORDS <= len(kws) <= MAX_KEYWORDS):
         return False
     # Reject prose: an index line's "keywords" must not contain spaces.
     for k in kws:
@@ -380,6 +385,51 @@ def _autoclean_template_lines() -> None:
 
 
 
+def _names_index(cmd: str) -> bool:
+    """True when the command string mentions the index file at all."""
+    if "MEMORY.md" in cmd:
+        return True
+    try:
+        resolved = str(_memory_md_resolved())
+    except Exception:
+        resolved = ""
+    return bool(resolved) and resolved in cmd
+
+
+def _shell_write_to_index(cmd: str) -> bool:
+    """True when *cmd* can WRITE the index — every check names the index.
+
+    A pipe, a semicolon or a command substitution is not a write by itself. The
+    2026-09-19 hardening treated any shell operator after a read-only first word as
+    a write, which refused ordinary reads: `grep -c "Memory optimization" agent.log;
+    grep -i ... | tail -3` came back as "MEMORY.md is write-locked" with the whole
+    command as the detected path (2026-11-03). Only a write VECTOR AIMED AT the index
+    is refused now.
+    """
+    if not _names_index(cmd):
+        return False
+    # Redirect whose target is the index. Anchored: "-o" or ">" inside a path
+    # (`pytest-of-ubuntu`, `a>b`) is not an operator.
+    if re.search(r"(?:^|\s|\|)>>>?\s*\S*MEMORY\.md", cmd):
+        return True
+    # In-program redirection: sort -o MEMORY.md, awk 'print > "..."'.
+    if re.search(r"(?:^|\s)-o\s+\S*MEMORY\.md", cmd):
+        return True
+    if re.search(r">\s*[\"']", cmd):
+        return True
+    # A read-only first word hiding a writer: `| tee MEMORY.md`, `| sed -i`, dd/truncate.
+    if re.search(r"\|\s*[\w./-]*\b(tee|sponge)\b", cmd):
+        return True
+    if re.search(r"\bsed\b[^|;]*\s-i", cmd):
+        return True
+    if re.search(r"\b(dd|truncate|install)\b[^|;]*MEMORY\.md", cmd):
+        return True
+    # Command substitution / backticks can run a write inside a read.
+    if re.search(r"\$\(|`", cmd):
+        return True
+    return False
+
+
 def _targets_memory_md(args: dict, tool_name: str = "") -> bool:
     """Return True if the tool args actually WRITE to MEMORY.md.
 
@@ -416,27 +466,10 @@ def _targets_memory_md(args: dict, tool_name: str = "") -> bool:
     if cmd:
         first = cmd.split()[0] if cmd.split() else ""
 
-        # 1. Pure read-only first-word commands: NEVER a write, no matter what
-        #    else the string contains (pipes/redirects are not writes to
-        #    MEMORY.md unless the target is MEMORY.md).
+        # 1. Pure read-only first-word commands: a shell operator is not a write.
+        #    Only a vector aimed AT the index is refused (see _shell_write_to_index).
         if re.match(r"^(cat|head|tail|wc|less|more|bat|grep|egrep|fgrep|ls|stat|md5sum|diff|file|sort|uniq|awk|cut|tr)\b", first):
-            # Block an explicit redirect whose TARGET is MEMORY.md
-            if re.search(r">>>?\s*\S*MEMORY\.md", cmd):
-                return True
-            # 2026-09-19 hardening: a read-only FIRST WORD is only a pure
-            # read if the command carries no shell operators at all — no
-            # pipes (tee), no redirects (any target), no command
-            # substitution $(...) or backticks, no chaining.
-            # `cat a | tee MEMORY.md` and `cat $(echo x >> MEMORY.md)` are
-            # writes wearing a read-only first word.
-            if re.search(r"[|;&`]|\$\(|>>>?", cmd):
-                return True
-            # In-program redirection: sort -o MEMORY.md, awk 'print > "file"'
-            if re.search(r"-o\s*\S*MEMORY\.md", cmd):
-                return True
-            if re.search(r">\s*[\"']", cmd):
-                return True
-            return False
+            return _shell_write_to_index(cmd)
 
         # 2. python3 <script.py> — block only if the SCRIPT ITSELF writes
         #    MEMORY.md. A script that merely happens to mention it (or an
@@ -811,6 +844,21 @@ def handle_pre_tool_call(
                         f"content spans {len(new_lines)} lines. One line per topic file."
                     ),
                 }
+
+        # ASCII arrow: never valid, in any shape. The operations[] path refused it,
+        # but this path read `kw,kw -> file.md` as "keywords, no arrow" and passed it
+        # through as an entry (2026-11-03).
+        if ASCII_ARROW_LINE_RE.match(content.strip()) and not _is_arrow_line(content):
+            return {
+                "action": "block",
+                "message": (
+                    "[memory-shaper] Wrong arrow. MEMORY.md uses the Unicode "
+                    "arrow ONLY:\n"
+                    "  keyword,keyword,keyword → file.md\n"
+                    "You wrote ASCII '->'. Replace it with '→' (U+2192), one "
+                    "space on each side."
+                ),
+            }
 
         if _is_arrow_line(content):
             # FIXED 2026-09-17: arrow lines are EXACTLY what belongs in

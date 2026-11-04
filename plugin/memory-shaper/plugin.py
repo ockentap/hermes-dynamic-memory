@@ -1055,6 +1055,34 @@ def register(ctx):
     """
     ctx.register_hook("pre_tool_call", handle_pre_tool_call)
     ctx.register_middleware("tool_execution", handle_tool_execution_middleware)
+    _register_memcheck(ctx)
+
+
+def _register_memcheck(ctx):
+    """Hidden memory-relevance self-report (memcheck.py / memcheck_hooks.py).
+
+    Two hooks, no core patch:
+      * ``pre_llm_call`` returns ``{"context": …}`` — the host appends it to the
+        API-bound copy of the user message only (agent/turn_context.py), so the
+        tag never reaches SQLite.
+      * ``transform_llm_output`` strips it before the assistant row is first
+        persisted (agent/turn_finalizer.py, #44239), so what the user sees is
+        what the next turn replays.
+
+    Registration is fail-open: a missing or broken memcheck module must leave
+    the format guard — the reason this plugin exists — fully working.
+    """
+    try:
+        import sys as _sys
+        _here = str(Path(__file__).resolve().parent)
+        if _here not in _sys.path:
+            _sys.path.insert(0, _here)
+        import memcheck_hooks
+        ctx.register_hook("pre_llm_call", memcheck_hooks.pre_llm_call)
+        ctx.register_hook("transform_llm_output", memcheck_hooks.transform_llm_output)
+        _logger.info("[memory-shaper] memcheck hooks registered")
+    except Exception as exc:  # pragma: no cover - environment dependent
+        _logger.warning("[memory-shaper] memcheck hooks NOT registered: %s", exc)
 
 
 def handle_tool_execution_middleware(**kwargs):

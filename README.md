@@ -234,6 +234,21 @@ Every entry carries at most 20 keywords, and they come from two hands:
 Removing a locked keyword is a human decision: the model may never subtract one, and
 the deterministic swap only replaces one when a candidate beats it by a real margin.
 
+### Evidence: asking the router how it routed
+
+Nothing parses the arrows at query time, so a routing decision leaves no trace to
+inspect — the model either opened the right topic file or it did not, and only the
+tool log records what it did, never whether it was right. `memcheck` (1.6.0) asks for
+that missing half in a tagged trailer on user turns 1–4, strips it before the reply is
+stored or shown, and keeps only claims that survive checking: filenames must exist,
+the blamed `hook` word must be one the user typed **and** one that sits on the line
+that misfired, and the quoted `fact` must literally appear in the topic file. Samples
+carrying a failed check are recorded and never vote.
+
+Read the evidence with `python3 scripts/memcheck_report.py`; design, prompt text and
+scoring rules in [`docs/memcheck.md`](docs/memcheck.md). It proposes, it never edits
+the index.
+
 ## Cost
 
 | | |

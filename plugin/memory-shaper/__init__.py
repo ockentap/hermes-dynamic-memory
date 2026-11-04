@@ -5,26 +5,21 @@
 # See the NOTICE file for attribution requirements.
 """
 Memory-Shaper plugin for Hermes Agent.
-Registers pre_tool_call hook and tool_execution middleware.
 
-v1.2.0 fix (2026-09-15): the original __init__.py referenced
-unbound names (handle_pre_tool_call, _hpc, handle_post_tool_call)
-causing silent NameError → plugin loaded but registered zero hooks.
-This file now properly imports from plugin.py.
+Enforces the flat keyword index and (since 1.6.0) the hidden memory-relevance
+self-report.
+
+v1.2.0 fix (2026-09-15): the original __init__.py referenced unbound names
+(handle_pre_tool_call, _hpc, handle_post_tool_call), so the plugin loaded and
+registered zero hooks. It now delegates to plugin.register().
+
+v1.6.0 fix: it used to re-register by hand, which meant a hook added to
+plugin.register() could be missing from whichever entry point the host picked.
+One registration path, always: plugin.register(). The try/except only exists
+because this directory's name contains a hyphen, so it can never be a package
+under a normal import — pytest and any path-based loader hit the absolute form.
 """
-from .plugin import handle_pre_tool_call
-
-
-def register(ctx):
-    """Register pre_tool_call hook + tool_execution middleware."""
-    # pre_tool_call hook (fires for terminal/file/execute_code)
-    ctx.register_hook('pre_tool_call', handle_pre_tool_call)
-
-    # tool_execution middleware (fires for memory() in _AGENT_LOOP_TOOLS)
-    # Imported lazily to keep the hook module load cheap.
-    try:
-        from .plugin import handle_tool_execution_middleware
-        ctx.register_middleware('tool_execution', handle_tool_execution_middleware)
-    except Exception as exc:  # pragma: no cover
-        # middleware unavailable; hook still protects non-memory tools
-        pass
+try:
+    from .plugin import register  # noqa: F401
+except ImportError:  # imported as a top-level module (path-based loader)
+    from plugin import register  # type: ignore  # noqa: F401

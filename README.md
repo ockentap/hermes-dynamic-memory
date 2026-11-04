@@ -329,6 +329,9 @@ hook-layer enforcement.
 
 ## Also in this repo
 
+- **Block map:** [`docs/blocks.md`](docs/blocks.md) — the seven components, who may write
+  `MEMORY.md`, the dependency arrows, and what breaks when each one moves.
+
 - **Porting:** nothing here is Hermes-specific — an index file with
   `keywords → file.md` lines plus a system-prompt routing rule works in Claude
   Code, OpenClaw, OpenHands, or any file-tool agent. The plugin is hardening,

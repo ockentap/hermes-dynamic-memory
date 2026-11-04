@@ -1,0 +1,289 @@
+{
+  "model": "deepseek-v4.1-flash",
+  "base_url": "https://opencode.ai/zen/go/v1",
+  "runs": {
+    "A1": {
+      "condition": "A",
+      "n": 12,
+      "at1": 12,
+      "hedged": 0,
+      "wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "fruit-bat.md",
+          "pick": "fruit-bat.md",
+          "also": [
+            "baseball-team.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 2,
+          "gold": "python-snake.md",
+          "pick": "python-snake.md",
+          "also": [
+            "python-toolchain.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-cat.md",
+          "pick": "jaguar-cat.md",
+          "also": [
+            "jaguar-car.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 4,
+          "gold": "mercury-planet.md",
+          "pick": "mercury-planet.md",
+          "also": [
+            "mercury-metal.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [
+            "apple-fruit.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 6,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [
+            "java-coffee.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 7,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [
+            "crane-bird.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 8,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [
+            "mouse-animal.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 9,
+          "gold": "shell-unix.md",
+          "pick": "shell-unix.md",
+          "also": [
+            "shell-company.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 10,
+          "gold": "bank-river.md",
+          "pick": "bank-river.md",
+          "also": [
+            "bank-finance.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 11,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [
+            "date-fruit.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        },
+        {
+          "id": 12,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [
+            "coach-vehicle.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 100,
+          "both_considered": true
+        }
+      ]
+    },
+    "B1": {
+      "condition": "B",
+      "n": 12,
+      "at1": 12,
+      "hedged": 0,
+      "wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "fruit-bat.md",
+          "pick": "fruit-bat.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 2,
+          "gold": "python-snake.md",
+          "pick": "python-snake.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-cat.md",
+          "pick": "jaguar-cat.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 4,
+          "gold": "mercury-planet.md",
+          "pick": "mercury-planet.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 6,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 7,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 8,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 9,
+          "gold": "shell-unix.md",
+          "pick": "shell-unix.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 10,
+          "gold": "bank-river.md",
+          "pick": "bank-river.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 11,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        },
+        {
+          "id": 12,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99,
+          "both_considered": false
+        }
+      ]
+    }
+  },
+  "ts": "20261104-151342"
+}

@@ -100,6 +100,7 @@ def build_report(home: Path) -> dict:
         "problems": dict(problems.most_common()),
         "demote": scored["demote"],
         "promote": scored["promote"],
+        "ambiguous_hooks": scored.get("ambiguous_hooks", {}),
         "near_miss_files": dict(rejected.most_common(15)),
         "near_miss_hooks": {f: dict(c.most_common(5)) for f, c in near_miss_hooks.items()},
     }
@@ -127,6 +128,10 @@ def render(rep: dict) -> str:
         lines.append("promote (2+ clean positives):")
         for f, terms in sorted(rep["promote"].items()):
             lines.append(f"  {f}: " + ", ".join(sorted(terms)))
+    if rep.get("ambiguous_hooks"):
+        lines.append("collisions (blamed word also on the correct line — disambiguate, never demote):")
+        for f, n in sorted(rep["ambiguous_hooks"].items()):
+            lines.append(f"  {f}  ×{n}")
     if rep["near_miss_files"]:
         lines.append("near-miss files (turn-1 rejected — review the hook word):")
         for f, n in rep["near_miss_files"].items():

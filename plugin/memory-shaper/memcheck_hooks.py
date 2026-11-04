@@ -130,6 +130,11 @@ def transform_llm_output(response_text: str = "", session_id: str = "", platform
         problems = memcheck.validate(sample, entries, bodies, user_messages)
         if misplaced:
             problems.append("text_after_tag")
+        # A blamed word that also sits on the correct line is a collision, not a
+        # bad keyword: it still has to be recorded, and must never be demoted.
+        sample["hook_shared"] = memcheck.hook_shared(
+            sample.get("hook"), memcheck.split_targets(sample.get("wrong")),
+            memcheck.split_targets(sample.get("right")), entries, user_messages)
 
         terms_source = user_messages[-1] if sample.get("verdict") == "wrong" and user_messages else (
             user_messages[-2] if len(user_messages) > 1 else (user_messages[-1] if user_messages else ""))
@@ -153,6 +158,7 @@ def transform_llm_output(response_text: str = "", session_id: str = "", platform
             "fact": sample.get("fact"),
             "used_files": used_files,
             "terms": terms,
+            "hook_shared": bool(sample.get("hook_shared")),
             "problems": problems,
             "user_tail": (user_messages[-1] if user_messages else "")[:400],
             "raw": (raw_tag or "")[:600],

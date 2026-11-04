@@ -221,6 +221,26 @@ def test_score_is_asymmetric_and_ignores_invalid():
     assert "bogus" not in rep["promote"].get("gateway-restart.md", {})
 
 
+def test_hook_shared_flags_a_collision():
+    # `klima` is on BOTH the aKlima line and the medivia line (see INDEX) and the
+    # user typed it: that is a collision, not a bad keyword.
+    assert memcheck.hook_shared("klima", ["aklima-android-app.md"],
+                                ["medivia-open-server.md"], ENTRIES, ["klima is slow"])
+    # `svrake` is only on the aKlima line: a genuine one-sided miss.
+    assert not memcheck.hook_shared("svrake", ["aklima-android-app.md"],
+                                    ["medivia-open-server.md"], ENTRIES, ["svrake is broken"])
+
+
+def test_score_never_demotes_a_shared_hook():
+    samples = [
+        _sample(verdict="wrong", wrong="aklima-android-app.md",
+                right="medivia-open-server.md", hook="klima", hook_shared=True),
+    ]
+    rep = memcheck.score(samples)
+    assert rep["demote"] == {}
+    assert rep["ambiguous_hooks"] == {"aklima-android-app.md": 1}
+
+
 # ------------------------------------------------------------ hook wiring
 
 def _store(tmp_path: Path) -> Path:

@@ -292,6 +292,22 @@ def check_fact(fact: str, body: str, min_words: int = 5) -> bool:
     return f in b
 
 
+def hook_shared(hook: str | None, wrong: list[str], right: list[str],
+                entries: dict[str, list[str]], user_messages: list[str]) -> bool:
+    """True when the blamed word also sits on the line that SHOULD have routed.
+
+    That is a collision, not a bad keyword: `bat` on both the animal line and the
+    bat-and-ball line is doing its job on each. Demoting it from the misfiring
+    line would break the file it belongs to and leave the other side untouched.
+    The fix for this shape is a distinguishing word on each line, never a removal.
+    """
+    if not hook:
+        return False
+    if not any(check_hook(hook, user_messages, entries.get(f, [])) for f in wrong if f in entries):
+        return False
+    return any(check_hook(hook, user_messages, entries.get(f, [])) for f in right if f in entries)
+
+
 def validate(sample: dict, entries: dict[str, list[str]], bodies: dict[str, str],
              user_messages: list[str]) -> list[str]:
     """Return a list of problems; empty means the sample is usable as evidence."""
@@ -366,6 +382,7 @@ def score(samples: list[dict]) -> dict:
     """
     demote: dict[str, dict[str, float]] = {}
     promote: dict[str, dict[str, float]] = {}
+    shared: dict[str, int] = {}
     ignored = 0
     for s in samples:
         if s.get("problems"):
@@ -385,9 +402,12 @@ def score(samples: list[dict]) -> dict:
         else:
             hook = fold(s.get("hook") or "")
             for f in split_targets(s.get("wrong")):
-                if hook:
+                if hook and not s.get("hook_shared"):
                     demote.setdefault(f, {}).setdefault(hook, 0.0)
                     demote[f][hook] += WEIGHT_WRONG
+                elif hook:
+                    # Collision, not a bad keyword. Counted, never demoted.
+                    shared[f] = shared.get(f, 0) + 1
             for f in split_targets(s.get("right")):
                 for term in s.get("terms") or []:
                     promote.setdefault(f, {}).setdefault(term, 0.0)
@@ -401,6 +421,7 @@ def score(samples: list[dict]) -> dict:
                    if (kept := {k: v for k, v in d.items() if v <= DEMOTE_AT})},
         "promote": {f: kept for f, d in promote.items()
                     if (kept := {k: v for k, v in d.items() if v >= PROMOTE_AT})},
+        "ambiguous_hooks": shared,
     }
 
 

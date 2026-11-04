@@ -1,0 +1,376 @@
+{
+  "model": "deepseek-v4.1-flash",
+  "stage": "correct",
+  "data": {
+    "summary": {
+      "replies": 24,
+      "tag_present": 22,
+      "clean": 22,
+      "named_right": 22,
+      "hook_traceable": 22,
+      "problems": {}
+    },
+    "rows": [
+      {
+        "id": 1,
+        "gold": "baseball-bat.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "fruit-bat.md",
+          "right": "baseball-bat.md",
+          "hook": "bat"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 87
+      },
+      {
+        "id": 2,
+        "gold": "python-toolchain.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "python-snake.md",
+          "right": "python-toolchain.md",
+          "hook": "python"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 78
+      },
+      {
+        "id": 3,
+        "gold": "jaguar-car.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "jaguar-cat.md",
+          "right": "jaguar-car.md",
+          "hook": "jaguar"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 72
+      },
+      {
+        "id": 4,
+        "gold": "mercury-metal.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "mercury-planet.md",
+          "right": "mercury-metal.md",
+          "hook": "mercury"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 93
+      },
+      {
+        "id": 5,
+        "gold": "apple-company.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "apple-fruit.md",
+          "right": "apple-company.md",
+          "hook": "apple"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 74
+      },
+      {
+        "id": 6,
+        "gold": "java-language.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "java-coffee.md",
+          "right": "java-language.md",
+          "hook": "java"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 90
+      },
+      {
+        "id": 7,
+        "gold": "crane-machine.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "crane-bird.md",
+          "right": "crane-machine.md",
+          "hook": "crane"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 89
+      },
+      {
+        "id": 8,
+        "gold": "mouse-device.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "mouse-animal.md",
+          "right": "mouse-device.md",
+          "hook": "mouse"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 74
+      },
+      {
+        "id": 9,
+        "gold": "shell-company.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "shell-unix.md",
+          "right": "shell-company.md",
+          "hook": "shell"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 75
+      },
+      {
+        "id": 10,
+        "gold": "bank-finance.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "bank-river.md",
+          "right": "bank-finance.md",
+          "hook": "bank"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 74
+      },
+      {
+        "id": 11,
+        "gold": "date-time.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "date-fruit.md",
+          "right": "date-time.md",
+          "hook": "date"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 70
+      },
+      {
+        "id": 12,
+        "gold": "coach-trainer.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "coach-vehicle.md",
+          "right": "coach-trainer.md",
+          "hook": "coach"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 75
+      },
+      {
+        "id": 1,
+        "gold": "baseball-bat.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "fruit-bat.md",
+          "right": "baseball-bat.md",
+          "hook": "bat"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 73
+      },
+      {
+        "id": 2,
+        "gold": "python-toolchain.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "python-snake.md",
+          "right": "python-toolchain.md",
+          "hook": "python"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 77
+      },
+      {
+        "id": 3,
+        "gold": "jaguar-car.md",
+        "tag_present": false,
+        "parsed": {
+          "t": null,
+          "verdict": null,
+          "wrong": null,
+          "right": null,
+          "hook": null
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 0
+      },
+      {
+        "id": 4,
+        "gold": "mercury-metal.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "mercury-planet.md",
+          "right": "mercury-metal.md",
+          "hook": "mercury"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 75
+      },
+      {
+        "id": 5,
+        "gold": "apple-company.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "apple-fruit.md",
+          "right": "apple-company.md",
+          "hook": "apple"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 91
+      },
+      {
+        "id": 6,
+        "gold": "java-language.md",
+        "tag_present": false,
+        "parsed": {
+          "t": null,
+          "verdict": null,
+          "wrong": null,
+          "right": null,
+          "hook": null
+        },
+        "problems": [],
+        "tag_leaked_into_visible": true,
+        "answer_len": 80
+      },
+      {
+        "id": 7,
+        "gold": "crane-machine.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "crane-bird.md",
+          "right": "crane-machine.md",
+          "hook": "crane"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 74
+      },
+      {
+        "id": 8,
+        "gold": "mouse-device.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "mouse-animal.md",
+          "right": "mouse-device.md",
+          "hook": "mouse"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 74
+      },
+      {
+        "id": 9,
+        "gold": "shell-company.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "shell-unix.md",
+          "right": "shell-company.md",
+          "hook": "shell"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 74
+      },
+      {
+        "id": 10,
+        "gold": "bank-finance.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "bank-river.md",
+          "right": "bank-finance.md",
+          "hook": "bank"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 73
+      },
+      {
+        "id": 11,
+        "gold": "date-time.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "date-fruit.md",
+          "right": "date-time.md",
+          "hook": "date"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 85
+      },
+      {
+        "id": 12,
+        "gold": "coach-trainer.md",
+        "tag_present": true,
+        "parsed": {
+          "t": "2",
+          "verdict": "wrong",
+          "wrong": "coach-vehicle.md",
+          "right": "coach-trainer.md",
+          "hook": "coach"
+        },
+        "problems": [],
+        "tag_leaked_into_visible": false,
+        "answer_len": 74
+      }
+    ]
+  }
+}

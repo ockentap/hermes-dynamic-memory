@@ -1,0 +1,891 @@
+{
+  "model": "deepseek-v4.1-flash",
+  "stage": "route",
+  "data": {
+    "ambig#1": {
+      "label": "ambig",
+      "n": 12,
+      "at1": 12,
+      "hedged_but_wrong": 0,
+      "confident_wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "baseball-bat.md",
+          "pick": "baseball-bat.md",
+          "also": [
+            "fruit-bat.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 70
+        },
+        {
+          "id": 2,
+          "gold": "python-toolchain.md",
+          "pick": "python-toolchain.md",
+          "also": [
+            "python-snake.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 85
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-car.md",
+          "pick": "jaguar-car.md",
+          "also": [
+            "jaguar-cat.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 92
+        },
+        {
+          "id": 4,
+          "gold": "mercury-metal.md",
+          "pick": "mercury-metal.md",
+          "also": [
+            "mercury-planet.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [
+            "apple-fruit.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 68
+        },
+        {
+          "id": 6,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [
+            "java-coffee.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 88
+        },
+        {
+          "id": 7,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [
+            "crane-bird.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        },
+        {
+          "id": 8,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [
+            "mouse-animal.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 93
+        },
+        {
+          "id": 9,
+          "gold": "shell-company.md",
+          "pick": "shell-company.md",
+          "also": [
+            "shell-unix.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 64
+        },
+        {
+          "id": 10,
+          "gold": "bank-finance.md",
+          "pick": "bank-finance.md",
+          "also": [
+            "bank-river.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        },
+        {
+          "id": 11,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [
+            "date-fruit.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 88
+        },
+        {
+          "id": 12,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [
+            "coach-vehicle.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        }
+      ]
+    },
+    "ambig#2": {
+      "label": "ambig",
+      "n": 12,
+      "at1": 12,
+      "hedged_but_wrong": 0,
+      "confident_wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "baseball-bat.md",
+          "pick": "baseball-bat.md",
+          "also": [
+            "fruit-bat.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 60
+        },
+        {
+          "id": 2,
+          "gold": "python-toolchain.md",
+          "pick": "python-toolchain.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-car.md",
+          "pick": "jaguar-car.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 4,
+          "gold": "mercury-metal.md",
+          "pick": "mercury-metal.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [
+            "apple-fruit.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 55
+        },
+        {
+          "id": 6,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 7,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 8,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 9,
+          "gold": "shell-company.md",
+          "pick": "shell-company.md",
+          "also": [
+            "shell-unix.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 80
+        },
+        {
+          "id": 10,
+          "gold": "bank-finance.md",
+          "pick": "bank-finance.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        },
+        {
+          "id": 11,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 12,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        }
+      ]
+    },
+    "ambig#3": {
+      "label": "ambig",
+      "n": 12,
+      "at1": 12,
+      "hedged_but_wrong": 0,
+      "confident_wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "baseball-bat.md",
+          "pick": "baseball-bat.md",
+          "also": [
+            "fruit-bat.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 60
+        },
+        {
+          "id": 2,
+          "gold": "python-toolchain.md",
+          "pick": "python-toolchain.md",
+          "also": [
+            "python-snake.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-car.md",
+          "pick": "jaguar-car.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 4,
+          "gold": "mercury-metal.md",
+          "pick": "mercury-metal.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [
+            "apple-fruit.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 55
+        },
+        {
+          "id": 6,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [
+            "java-coffee.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 7,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [
+            "crane-bird.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 85
+        },
+        {
+          "id": 8,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 9,
+          "gold": "shell-company.md",
+          "pick": "shell-company.md",
+          "also": [
+            "shell-unix.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 75
+        },
+        {
+          "id": 10,
+          "gold": "bank-finance.md",
+          "pick": "bank-finance.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 11,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 12,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        }
+      ]
+    },
+    "ambig+promoted#1": {
+      "label": "ambig+promoted",
+      "n": 12,
+      "at1": 12,
+      "hedged_but_wrong": 0,
+      "confident_wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "baseball-bat.md",
+          "pick": "baseball-bat.md",
+          "also": [
+            "fruit-bat.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 60
+        },
+        {
+          "id": 2,
+          "gold": "python-toolchain.md",
+          "pick": "python-toolchain.md",
+          "also": [
+            "python-snake.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 85
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-car.md",
+          "pick": "jaguar-car.md",
+          "also": [
+            "jaguar-cat.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 4,
+          "gold": "mercury-metal.md",
+          "pick": "mercury-metal.md",
+          "also": [
+            "mercury-planet.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [
+            "apple-fruit.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 55
+        },
+        {
+          "id": 6,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [
+            "java-coffee.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        },
+        {
+          "id": 7,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [
+            "crane-bird.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        },
+        {
+          "id": 8,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [
+            "mouse-animal.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 9,
+          "gold": "shell-company.md",
+          "pick": "shell-company.md",
+          "also": [
+            "shell-unix.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 70
+        },
+        {
+          "id": 10,
+          "gold": "bank-finance.md",
+          "pick": "bank-finance.md",
+          "also": [
+            "bank-river.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 90
+        },
+        {
+          "id": 11,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [
+            "date-fruit.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        },
+        {
+          "id": 12,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [
+            "coach-vehicle.md"
+          ],
+          "correct": true,
+          "hedged": false,
+          "conf": 95
+        }
+      ]
+    },
+    "clear#1": {
+      "label": "clear",
+      "n": 12,
+      "at1": 12,
+      "hedged_but_wrong": 0,
+      "confident_wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "fruit-bat.md",
+          "pick": "fruit-bat.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 98
+        },
+        {
+          "id": 2,
+          "gold": "python-snake.md",
+          "pick": "python-snake.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-cat.md",
+          "pick": "jaguar-cat.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 4,
+          "gold": "mercury-planet.md",
+          "pick": "mercury-planet.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 6,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 7,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 8,
+          "gold": "shell-unix.md",
+          "pick": "shell-unix.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 9,
+          "gold": "bank-river.md",
+          "pick": "bank-river.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 10,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 11,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        },
+        {
+          "id": 12,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 100
+        }
+      ]
+    },
+    "clear#2": {
+      "label": "clear",
+      "n": 12,
+      "at1": 12,
+      "hedged_but_wrong": 0,
+      "confident_wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "fruit-bat.md",
+          "pick": "fruit-bat.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 2,
+          "gold": "python-snake.md",
+          "pick": "python-snake.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-cat.md",
+          "pick": "jaguar-cat.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 4,
+          "gold": "mercury-planet.md",
+          "pick": "mercury-planet.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 6,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 7,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 8,
+          "gold": "shell-unix.md",
+          "pick": "shell-unix.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 9,
+          "gold": "bank-river.md",
+          "pick": "bank-river.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 10,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 11,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 12,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        }
+      ]
+    },
+    "clear#3": {
+      "label": "clear",
+      "n": 12,
+      "at1": 12,
+      "hedged_but_wrong": 0,
+      "confident_wrong": 0,
+      "rows": [
+        {
+          "id": 1,
+          "gold": "fruit-bat.md",
+          "pick": "fruit-bat.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 98
+        },
+        {
+          "id": 2,
+          "gold": "python-snake.md",
+          "pick": "python-snake.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 3,
+          "gold": "jaguar-cat.md",
+          "pick": "jaguar-cat.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 4,
+          "gold": "mercury-planet.md",
+          "pick": "mercury-planet.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 5,
+          "gold": "apple-company.md",
+          "pick": "apple-company.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 6,
+          "gold": "crane-machine.md",
+          "pick": "crane-machine.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 7,
+          "gold": "mouse-device.md",
+          "pick": "mouse-device.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 8,
+          "gold": "shell-unix.md",
+          "pick": "shell-unix.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 9,
+          "gold": "bank-river.md",
+          "pick": "bank-river.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 10,
+          "gold": "date-time.md",
+          "pick": "date-time.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 11,
+          "gold": "coach-trainer.md",
+          "pick": "coach-trainer.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        },
+        {
+          "id": 12,
+          "gold": "java-language.md",
+          "pick": "java-language.md",
+          "also": [],
+          "correct": true,
+          "hedged": false,
+          "conf": 99
+        }
+      ]
+    }
+  }
+}

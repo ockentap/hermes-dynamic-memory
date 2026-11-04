@@ -8,8 +8,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import pytest  # noqa: E402
-
 from plugin import handle_pre_tool_call  # noqa: E402
 
 
@@ -101,12 +99,14 @@ def test_operations_mixed_valid_invalid():
     result = handle_pre_tool_call("memory", args)
     assert result.get("action") == "block", f"Expected block on second invalid op, got {result}"
 
-@pytest.mark.xfail(strict=True, reason=(
-    "known guard gap: on the operations[] path the ASCII arrow is accepted and an "
-    "absolute target slips through, while the Unicode-arrow rule says it must be "
-    "refused. Strict xfail so fixing it turns this red and forces the marker off."))
 def test_operations_ascii_arrow():
-    """ASCII arrow in operations[] should be rejected."""
+    """ASCII arrow in operations[] must be refused with the arrow-specific message.
+
+    Was a strict xfail: the batch path validated through `_is_arrow_line`, whose
+    regex is Unicode-only, so an ASCII line looked like "keywords, no arrow" and
+    passed the comma-ratio test. That is the path current Hermes uses, which made
+    it the one hole that mattered.
+    """
     args = {
         "operations": [
             {"action": "add", "content": "java -> /wrong/path.md"},

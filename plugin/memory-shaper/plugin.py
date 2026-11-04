@@ -755,6 +755,23 @@ def handle_pre_tool_call(
                 if not _cont:
                     # Empty-content operation → let it pass (removes are already excluded above).
                     continue
+                # ASCII arrow: never valid, in any shape. This is the path current
+                # Hermes actually uses (`operations[]`), and it was the one missing the
+                # check: an ASCII line failed `_is_arrow_line` (Unicode-only regex) and
+                # fell through to the comma-ratio test, which it passed — so a
+                # hand-typed `kw,kw -> file.md` was written straight into the index.
+                # The single-op path and the patch path both already refused it.
+                if ASCII_ARROW_LINE_RE.match(_cont.strip()) and not _is_arrow_line(_cont):
+                    return {
+                        "action": "block",
+                        "message": (
+                            f"[memory-shaper] Operation {idx}: Wrong arrow. MEMORY.md uses the "
+                            "Unicode arrow ONLY:\n"
+                            "  keyword,keyword,keyword → file.md\n"
+                            "You wrote ASCII '->'. Replace it with '→' (U+2192), one space "
+                            "on each side."
+                        ),
+                    }
                 if _is_arrow_line(_cont):
                     if not _validate_arrow_target(_cont):
                         band = _keyword_band_error(_cont)

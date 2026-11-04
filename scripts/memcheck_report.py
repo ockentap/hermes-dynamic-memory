@@ -98,7 +98,7 @@ def build_report(home: Path) -> dict:
         "verdicts": dict(verdicts),
         "compliance": compliance,
         "problems": dict(problems.most_common()),
-        "demote": scored["demote"],
+        "review": scored.get("review", {}),
         "promote": scored["promote"],
         "ambiguous_hooks": scored.get("ambiguous_hooks", {}),
         "near_miss_files": dict(rejected.most_common(15)),
@@ -120,9 +120,10 @@ def render(rep: dict) -> str:
         lines.append("  verdicts: " + "  ".join(f"{k}={n}" for k, n in v.items()))
     if rep["problems"]:
         lines.append("rejected claims: " + "  ".join(f"{k}={n}" for k, n in rep["problems"].items()))
-    if rep["demote"]:
-        lines.append("demote (validated wrong verdicts, -2 each):")
-        for f, kws in sorted(rep["demote"].items()):
+    if rep.get("review"):
+        lines.append("review by hand (blamed keyword; check that demoting it would not "
+                     "break the line that routed correctly):")
+        for f, kws in sorted(rep["review"].items()):
             lines.append(f"  {f}: " + ", ".join(f"{k} {v:+.0f}" for k, v in sorted(kws.items())))
     if rep["promote"]:
         lines.append("promote (2+ clean positives):")
@@ -138,7 +139,7 @@ def render(rep: dict) -> str:
             hooks = rep["near_miss_hooks"].get(f, {})
             hs = ("  hooks: " + ", ".join(f"{k}×{c}" for k, c in hooks.items())) if hooks else ""
             lines.append(f"  {f}  ×{n}{hs}")
-    if not any([rep["demote"], rep["promote"], rep["near_miss_files"]]):
+    if not any([rep.get("review"), rep["promote"], rep["near_miss_files"]]):
         lines.append("no actionable evidence yet")
     return "\n".join(lines)
 

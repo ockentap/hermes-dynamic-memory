@@ -1,0 +1,321 @@
+{
+  "model": "deepseek-v4.1-flash",
+  "data": {
+    "records": [
+      {
+        "id": 1,
+        "kind": "not-an-error",
+        "run": 1,
+        "tag_present": false,
+        "verdict": null,
+        "wrong": null,
+        "right": null,
+        "hook": null,
+        "hook_shared": false,
+        "problems": [],
+        "leaked": false,
+        "terms": [
+          "talking"
+        ],
+        "t": null
+      },
+      {
+        "id": 2,
+        "kind": "not-an-error",
+        "run": 1,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "backup-job.md",
+        "right": null,
+        "hook": "backup",
+        "hook_shared": false,
+        "problems": [
+          "wrong_without_alternative"
+        ],
+        "leaked": false,
+        "terms": [
+          "tuesday"
+        ],
+        "t": "2"
+      },
+      {
+        "id": 3,
+        "kind": "not-an-error",
+        "run": 1,
+        "tag_present": false,
+        "verdict": null,
+        "wrong": null,
+        "right": null,
+        "hook": null,
+        "hook_shared": false,
+        "problems": [],
+        "leaked": false,
+        "terms": [
+          "warranty"
+        ],
+        "t": null
+      },
+      {
+        "id": 4,
+        "kind": "not-an-error",
+        "run": 1,
+        "tag_present": false,
+        "verdict": null,
+        "wrong": null,
+        "right": null,
+        "hook": null,
+        "hook_shared": false,
+        "problems": [],
+        "leaked": false,
+        "terms": [
+          "added",
+          "wrong"
+        ],
+        "t": null
+      },
+      {
+        "id": 5,
+        "kind": "not-an-error",
+        "run": 1,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "daemon-unit.md",
+        "right": null,
+        "hook": "daemon",
+        "hook_shared": false,
+        "problems": [
+          "wrong_without_alternative",
+          "hook_untraceable"
+        ],
+        "leaked": false,
+        "terms": [
+          "forget",
+          "weather"
+        ],
+        "t": "2"
+      },
+      {
+        "id": 6,
+        "kind": "not-an-error",
+        "run": 1,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "daemon-unit.md",
+        "right": "backup-job.md",
+        "hook": "daemon",
+        "hook_shared": false,
+        "problems": [
+          "hook_untraceable"
+        ],
+        "leaked": false,
+        "terms": [
+          "copies",
+          "night"
+        ],
+        "t": "2"
+      },
+      {
+        "id": 7,
+        "kind": "memory-error",
+        "run": 1,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "daemon-unit.md",
+        "right": "backup-job.md",
+        "hook": "daemon",
+        "hook_shared": false,
+        "problems": [
+          "hook_untraceable"
+        ],
+        "leaked": false,
+        "terms": [],
+        "t": "2"
+      },
+      {
+        "id": 8,
+        "kind": "memory-error",
+        "run": 1,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "tv-purchase.md",
+        "right": "gold-ledger.md",
+        "hook": "warranty",
+        "hook_shared": false,
+        "problems": [],
+        "leaked": false,
+        "terms": [
+          "ledger"
+        ],
+        "t": "2"
+      },
+      {
+        "id": 1,
+        "kind": "not-an-error",
+        "run": 2,
+        "tag_present": false,
+        "verdict": null,
+        "wrong": null,
+        "right": null,
+        "hook": null,
+        "hook_shared": false,
+        "problems": [],
+        "leaked": false,
+        "terms": [
+          "talking"
+        ],
+        "t": null
+      },
+      {
+        "id": 2,
+        "kind": "not-an-error",
+        "run": 2,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "backup-job.md",
+        "right": null,
+        "hook": "backup",
+        "hook_shared": false,
+        "problems": [
+          "wrong_without_alternative",
+          "fact_not_in_file"
+        ],
+        "leaked": false,
+        "terms": [
+          "tuesday"
+        ],
+        "t": "2"
+      },
+      {
+        "id": 3,
+        "kind": "not-an-error",
+        "run": 2,
+        "tag_present": false,
+        "verdict": null,
+        "wrong": null,
+        "right": null,
+        "hook": null,
+        "hook_shared": false,
+        "problems": [],
+        "leaked": false,
+        "terms": [
+          "warranty"
+        ],
+        "t": null
+      },
+      {
+        "id": 4,
+        "kind": "not-an-error",
+        "run": 2,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": null,
+        "right": null,
+        "hook": null,
+        "hook_shared": false,
+        "problems": [
+          "wrong_without_file",
+          "wrong_without_alternative"
+        ],
+        "leaked": false,
+        "terms": [
+          "added",
+          "wrong"
+        ],
+        "t": "2"
+      },
+      {
+        "id": 5,
+        "kind": "not-an-error",
+        "run": 2,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "daemon-unit.md",
+        "right": null,
+        "hook": "daemon",
+        "hook_shared": false,
+        "problems": [
+          "wrong_without_alternative",
+          "hook_untraceable"
+        ],
+        "leaked": false,
+        "terms": [
+          "forget",
+          "weather"
+        ],
+        "t": "2"
+      },
+      {
+        "id": 6,
+        "kind": "not-an-error",
+        "run": 2,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "daemon-unit.md",
+        "right": "backup-job.md",
+        "hook": "daemon unit",
+        "hook_shared": false,
+        "problems": [],
+        "leaked": false,
+        "terms": [
+          "copies",
+          "night"
+        ],
+        "t": "2"
+      },
+      {
+        "id": 7,
+        "kind": "memory-error",
+        "run": 2,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "daemon-unit.md",
+        "right": "backup-job.md",
+        "hook": "daemon",
+        "hook_shared": false,
+        "problems": [
+          "hook_untraceable"
+        ],
+        "leaked": false,
+        "terms": [],
+        "t": "2"
+      },
+      {
+        "id": 8,
+        "kind": "memory-error",
+        "run": 2,
+        "tag_present": true,
+        "verdict": "wrong",
+        "wrong": "tv-purchase.md",
+        "right": "gold-ledger.md",
+        "hook": "TV",
+        "hook_shared": false,
+        "problems": [],
+        "leaked": false,
+        "terms": [
+          "ledger"
+        ],
+        "t": "2"
+      }
+    ]
+  },
+  "scored": {
+    "samples": 16,
+    "ignored": 13,
+    "used": 3,
+    "demote": {
+      "tv-purchase.md": {
+        "warranty": -2.0,
+        "tv": -2.0
+      },
+      "daemon-unit.md": {
+        "daemon unit": -2.0
+      }
+    },
+    "promote": {
+      "gold-ledger.md": {
+        "ledger": 2.0
+      }
+    },
+    "ambiguous_hooks": {}
+  }
+}

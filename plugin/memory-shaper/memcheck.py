@@ -274,10 +274,21 @@ def check_hook(hook: str, user_messages: list[str], keywords: list[str]) -> bool
     if not any(h in fold(m) for m in user_messages or []):
         return False
     for kw in keywords or []:
-        k = fold(kw)
-        if k == h or h in k or k in h:
+        if fold(kw) == h:
             return True
     return False
+
+
+def names_target(message: str, keywords: list[str]) -> bool:
+    """Does the correction name a destination using the index's own vocabulary?
+
+    A pushback that says "no, the one from last Tuesday" is a refinement or a topic
+    change, not a routing correction: it names no other line. Requiring the
+    correction to use a keyword of the file it wants is the cheapest
+    deterministic way to tell "you routed wrong" apart from "I changed my mind".
+    """
+    text = fold(message or "")
+    return any(fold(k) and fold(k) in text for k in (keywords or []))
 
 
 def check_fact(fact: str, body: str, min_words: int = 5) -> bool:
@@ -331,6 +342,11 @@ def validate(sample: dict, entries: dict[str, list[str]], bodies: dict[str, str]
                 problems.append("wrong_without_file")
             if not right:
                 problems.append("wrong_without_alternative")
+            elif not any(names_target(user_messages[-1] if user_messages else "",
+                                      entries.get(f, [])) for f in right if f in entries):
+                # "no, I meant X" with no X from the index is a refinement or a
+                # change of subject, not evidence that the keyword was wrong.
+                problems.append("correction_does_not_name_target")
         if sample.get("hook"):
             # On a `wrong` verdict the blamed word must be a keyword ON THE
             # WRONG LINE and must be a word the user typed. A word that only
@@ -417,7 +433,10 @@ def score(samples: list[dict]) -> dict:
         "samples": len(samples),
         "ignored": ignored,
         "used": len(samples) - ignored,
-        "demote": {f: kept for f, d in demote.items()
+        # Named `review`, not `demote`: on every case measured so far the blamed
+        # word was the one that routed correctly, so acting on this automatically
+        # damages the index. It is a reading list, not a work queue.
+        "review": {f: kept for f, d in demote.items()
                    if (kept := {k: v for k, v in d.items() if v <= DEMOTE_AT})},
         "promote": {f: kept for f, d in promote.items()
                     if (kept := {k: v for k, v in d.items() if v >= PROMOTE_AT})},

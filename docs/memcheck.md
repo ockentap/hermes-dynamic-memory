@@ -90,8 +90,20 @@ Asymmetric on purpose: a bad keyword costs more than a missing one.
 - `unsure` → nothing
 - any problem → ignored entirely
 
-Promotion needs **two independent clean positives**; demotion needs **one**
-validated miss. Promotion candidates come from `prompt_terms()`, which enforces
+Promotion needs **two independent clean positives**; a miss needs **one**
+validated hit. But the output is called `review`, not `demote`, and that is
+deliberate: on every measured case the blamed word was the one that routed
+**correctly** — the user refined, changed subject, or complained about the
+arithmetic, and the model called it a routing failure. Acting on that
+automatically damages the line that worked. Read it, judge it, edit by hand.
+
+Two guards do the actual work here:
+
+- **`hook` must be one keyword, exactly.** A phrase like `daemon unit` matched by
+  substring and produced a recommendation nobody could act on.
+- **The correction must name its destination in the index's own words.**
+  `"no, the one from last Tuesday"` names no other line — it is a refinement, not
+  a routing error. `"no, I meant the gold ledger"` does name one, and passes. Promotion candidates come from `prompt_terms()`, which enforces
 the uniqueness rule the whole feature exists to serve:
 
 1. never a word already on **≥ 2** lines — that buys matches and pays in

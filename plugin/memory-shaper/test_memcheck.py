@@ -128,11 +128,27 @@ def test_validate_hook_off_the_wrong_line_is_not_evidence():
 def test_validate_clean_wrong_sample():
     sample = memcheck.parse_tag(
         '<mc t="2" verdict="wrong" wrong="aklima-android-app.md" right="gateway-restart.md" hook="svrake">')
-    # `svrake` is on the wrong line and the user typed it: this is exactly the
-    # shape that may demote a keyword.
+    # `svrake` is on the wrong line, the user typed it, and the correction names
+    # the destination with one of its own keywords ("gateway"). Actionable shape.
     problems = memcheck.validate(sample, ENTRIES, {"gateway-restart.md": BODY_A},
-                                 ["svrake does nothing on the AC"])
+                                 ["svrake does nothing on the AC",
+                                  "no, I meant the gateway restart thing"])
     assert problems == []
+
+
+def test_hook_must_be_one_keyword_not_a_phrase():
+    # A phrase that merely contains a keyword is not a keyword: "daemon unit"
+    # passed by substring and produced a demotion nobody could act on.
+    assert not memcheck.check_hook("daemon unit", ["the daemon unit is dead"], ["daemon", "unit"])
+    assert memcheck.check_hook("daemon", ["the daemon unit is dead"], ["daemon", "unit"])
+
+
+def test_correction_must_name_the_destination():
+    sample = memcheck.parse_tag(
+        '<mc t="2" verdict="wrong" wrong="aklima-android-app.md" right="gateway-restart.md" hook="svrake">')
+    problems = memcheck.validate(sample, ENTRIES, {"gateway-restart.md": BODY_A},
+                                 ["svrake does nothing", "no, the one from last Tuesday"])
+    assert "correction_does_not_name_target" in problems
 
 
 def test_validate_fact_not_in_file():
@@ -216,7 +232,7 @@ def test_score_is_asymmetric_and_ignores_invalid():
     rep = memcheck.score(samples)
     assert rep["samples"] == 6
     assert rep["ignored"] == 2
-    assert rep["demote"]["aklima-android-app.md"]["klima"] == -4.0
+    assert rep["review"]["aklima-android-app.md"]["klima"] == -4.0
     assert rep["promote"]["gateway-restart.md"] == {"svrake": 2.0}
     assert "bogus" not in rep["promote"].get("gateway-restart.md", {})
 
@@ -237,7 +253,7 @@ def test_score_never_demotes_a_shared_hook():
                 right="medivia-open-server.md", hook="klima", hook_shared=True),
     ]
     rep = memcheck.score(samples)
-    assert rep["demote"] == {}
+    assert rep["review"] == {}
     assert rep["ambiguous_hooks"] == {"aklima-android-app.md": 1}
 
 

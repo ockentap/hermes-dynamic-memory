@@ -150,7 +150,12 @@ cost 37,572. Past roughly **300 topics** it needs pruning or archiving — that 
 | Ingest per session | 24,322 | **23,338** | 0 — no detail tier |
 | Facts retained, 10 sessions | **20/20** | **20/20** | not measurable — cap |
 | Retractions respected | **7/7** | **7/7** | — |
-| Infrastructure needed | **none** | DB + ~1 GB embedding stack | none |
+| Infrastructure needed | **none** | DB + 1.2 GB (CPU-only) to 5.4 GB (CUDA) embedding stack | none |
+
+Installed footprint, measured on this box rather than estimated: a CUDA build of the embedding stack
+is **5.4 GB** on disk — `torch` 2.15 (1.1 GB) plus 3.3 GB of `nvidia-*` CUDA-13 wheels plus `triton`
+(0.9 GB) — and `transformers` + `sentence-transformers` add ~70 MB on top of the model weights. The
+CPU-only wheel is the ~1.2 GB case. None of it is needed to run dynmem, which is the point of the row.
 
 **Where dynmem wins:** routing precision, the cost of *using* what it stored, and needing nothing
 running — no database, no embedding model, no server. Plain files you can `grep`, `diff` and back up.

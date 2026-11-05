@@ -1,6 +1,5 @@
 ## Dynmem
 
-
 **A keyword index in the prompt, the knowledge on disk, and a hook that keeps the two apart.**
 
 Hermes' built-in memory has a hard cap: fill it and the agent starts losing memory. dynmem turns

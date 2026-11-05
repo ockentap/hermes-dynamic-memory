@@ -91,6 +91,12 @@ one is the repo's demo). The template's placeholder note and example lines are
 removed automatically by the plugin on the first real memory write; the
 structural `keyword,keyword,keyword → file.md` line stays.
 
+The template's `# All memories are located in: <MEMORIES_DIR>` line is replaced
+by the plugin on the first load of the session with that profile's real absolute
+path (idempotent; one backup at `$HERMES_HOME/state/memory-header-backup.md`).
+If the line still says `<MEMORIES_DIR>` after a session has started, the plugin
+is not loading — fix that before trusting retrieval.
+
 ## 5. Verify before trusting it
 
 ```bash

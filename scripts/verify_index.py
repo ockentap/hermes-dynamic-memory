@@ -50,6 +50,117 @@ def is_separator_line(line: str) -> bool:
     return len(s) >= 3 and set(s) <= SEPARATOR_CHARS
 
 
+# ─── Related edges (v1.7.0) ──────────────────────────────────────────────────
+# A topic file may end with one "## Related" block holding at most five
+# conditional links to sibling topic files:
+#
+#   ## Related
+#   - when the user is cooking a specific dish → lasagna.md
+#
+# The condition is the whole point: the agent follows the edge only when it
+# matches, so the cost is paid at read time, never in the always-injected index.
+# The checks below keep that trail from rotting (missing targets, self links,
+# run-away blocks) and flag the two shapes that cause ping-pong reads: direct
+# back-links and cycles.
+RELATED_HEADING_RE = re.compile(r"^#{2,3}\s*related(?:\s+(?:memories|edges))?\s*:?\s*$", re.IGNORECASE)
+RELATED_EDGE_RE = re.compile(
+    r"^[-*]\s+when\s+(?P<cond>\S.*?)\s+(?:\u2192|->)\s+(?P<target>[A-Za-z0-9_.\-]+\.md)\s*$",
+    re.IGNORECASE,
+)
+MAX_RELATED_EDGES = 5
+MIN_CONDITION_WORDS = 4
+
+
+def related_blocks(text: str):
+    """Yield (heading_line_number, [(line_number, line), ...]) for every *edge* block.
+
+    A plain ``## Related`` list of links is ordinary prose and stays untouched —
+    live topic files already carry sections like that. A block is treated as an
+    edge block when the heading is the canonical ``## Related memories`` /
+    ``## Related edges``, or when any bullet in it carries an arrow. That keeps
+    the validator from failing files it never wrote while still rejecting a
+    malformed edge in a block that is clearly trying to be one.
+    """
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        heading = lines[i].strip()
+        if RELATED_HEADING_RE.match(heading):
+            block, j = [], i + 1
+            while j < len(lines) and not lines[j].lstrip().startswith("#"):
+                block.append((j + 1, lines[j]))
+                j += 1
+            canonical = "memor" in heading.lower() or "edge" in heading.lower()
+            has_arrow = any(
+                ("\u2192" in l or "->" in l)
+                for _, l in block if l.strip().startswith(("-", "*"))
+            )
+            if canonical or has_arrow:
+                yield i + 1, block
+            i = j
+        else:
+            i += 1
+
+
+def check_related(memdir: str, onfile: set[str]):
+    """Validate every ## Related block. Returns (edges_ok, failures, warnings, graph)."""
+    ok, bad, warn = 0, [], []
+    graph: dict[str, set[str]] = {}
+    for path in sorted(glob.glob(os.path.join(memdir, "*.md"))):
+        base = os.path.basename(path)
+        if base.upper() in {"MEMORY.MD", "USER.MD", "ARCHIVED-MEMORIES.MD", "ARCHIVED-MEMORY.MD"}:
+            continue
+        try:
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+        except Exception as exc:  # unreadable topic file
+            bad.append((base, 0, f"UNREADABLE ({exc})"))
+            continue
+        for heading_lineno, block in related_blocks(text):
+            edges = [(n, l.strip()) for n, l in block if l.strip().startswith(("-", "*"))]
+            if len(edges) > MAX_RELATED_EDGES:
+                bad.append((base, heading_lineno,
+                            f"TOO MANY RELATED EDGES ({len(edges)} > {MAX_RELATED_EDGES})"))
+            seen: set[str] = set()
+            for lineno, line in edges:
+                m = RELATED_EDGE_RE.match(line)
+                if not m:
+                    bad.append((base, lineno,
+                                "RELATED LINE NOT AN EDGE (want: - when <condition> \u2192 file.md)"))
+                    continue
+                cond, target = m.group("cond").strip(), m.group("target")
+                if len(cond.split()) < MIN_CONDITION_WORDS:
+                    bad.append((base, lineno, f"RELATED CONDITION TOO VAGUE ('{cond}')"))
+                if target == base:
+                    bad.append((base, lineno, "RELATED SELF LINK"))
+                    continue
+                if target in seen:
+                    bad.append((base, lineno, f"DUPLICATE RELATED TARGET '{target}'"))
+                    continue
+                if target not in onfile:
+                    bad.append((base, lineno, f"RELATED TARGET MISSING '{target}'"))
+                    continue
+                seen.add(target)
+                graph.setdefault(base, set()).add(target)
+                ok += 1
+    # Direct back-links and longer cycles: warnings, not build failures — a
+    # deliberate two-way trail is allowed, it is just worth seeing.
+    for src, targets in graph.items():
+        for dst in sorted(targets):
+            if src in graph.get(dst, set()):
+                if src < dst:
+                    warn.append((src, f"RECIPROCAL RELATED EDGE ({src} \u2194 {dst})"))
+    def _walk(node, path, seen):
+        for nxt in sorted(graph.get(node, ())):
+            if nxt == path[0]:
+                warn.append((path[0], "RELATED CYCLE " + " \u2192 ".join(path + [nxt])))
+            elif nxt not in seen and len(path) < 6:
+                _walk(nxt, path + [nxt], seen | {nxt})
+    for start in sorted(graph):
+        _walk(start, [start], {start})
+    return ok, bad, warn
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("candidate")
@@ -152,11 +263,19 @@ def main() -> int:
     for o in orphans:
         print(f"  [FAIL] ANTI-ORPHAN: file '{o}' exists on disk but has no index line")
 
+    rel_ok, rel_bad, rel_warn = check_related(memdir, onfile)
+    for base, lineno, reason in rel_bad:
+        print(f"  [FAIL] {reason} ({base}:{lineno})")
+    for base, reason in rel_warn:
+        print(f"  [WARN] {reason} ({base})")
+
     total = len(ok) + len(bad) + len(orphans)
     note = f", {separators} separator line(s) ignored" if separators else ""
     print(f"\n{len(ok)} lines OK, {len(bad)} bad lines, {len(orphans)} orphaned files "
           f"({total} checks{note})")
-    return 1 if (bad or orphans) else 0
+    print(f"{rel_ok} related edges OK, {len(rel_bad)} related problems, "
+          f"{len(rel_warn)} warnings")
+    return 1 if (bad or orphans or rel_bad) else 0
 
 
 if __name__ == "__main__":

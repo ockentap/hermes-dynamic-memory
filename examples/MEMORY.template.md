@@ -1,4 +1,8 @@
 # Dynamic Memory Index — dynmem
+# All memories are located in: <MEMORIES_DIR>
+# Read rule: match an entry, then read <path above>/<file>.md directly — no search, no ls, no glob.
+# Need two files? Read both in one command: cat <path above>/a.md <path above>/b.md
+# Related edge: a topic file may end with "## Related memories" (max 5 lines, `- when <condition> → file.md`). Follow one only when its condition matches; never more than 2 hops.
 A keyword routing table, not the knowledge base: keywords map to a topic file here; read that file on a match.
 Absence from this index is not absence of knowledge.
 Search order: 1) match keywords 2) grep the live files 3) archived index (archived memories/archived-memories.md) 4) grep the archive 5) MCP helper 6) old conversations 7) skills and plugins 8) further out.

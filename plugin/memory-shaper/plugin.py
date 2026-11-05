@@ -412,6 +412,114 @@ def _autoclean_template_lines() -> None:
 
 
 
+# ─── Absolute memories-path header (v1.7.0) ─────────────────────────────────
+# MEMORY.md carries exactly ONE absolute path line. It cannot ship in the
+# template because the path is per-profile, so the plugin writes it: at load,
+# on the first turn, and after any successful memory write. Index entries stay
+# bare filenames and the agent resolves them against this line — that turns a
+# recall from a directory hunt (search → ls → read, 3-4 round trips, each one
+# re-billing the whole context) into a single direct read.
+#
+# Conservative by design:
+#   * no MEMORY.md, or a stock store with no arrow entry  → untouched
+#   * line present and correct                           → no write
+#   * line present with a stale path (profile moved)     → rewritten
+#   * no line                                            → inserted after the title
+# Writes are atomic, one backup slot lives in <hermes>/state/, and
+# MEMORY_SHAPER_NO_PATH_HEADER=1 disables the feature entirely.
+# Matches the placeholder shipped in the template too, so a hand-copied
+# "<MEMORIES_DIR>" is replaced on first run instead of leaving two path lines.
+PATH_HEADER_RE = re.compile(
+    r"^#\s*All memories (?:are located|live) in:\s*(?P<path>\S.*?)?\s*$", re.IGNORECASE
+)
+PATH_HEADER_TEMPLATE = "# All memories are located in: {path}"
+_PATH_HEADER_STAT: dict[str, tuple] = {}
+
+
+def _path_header_disabled() -> bool:
+    return os.environ.get("MEMORY_SHAPER_NO_PATH_HEADER", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _is_dynmem_index(text: str) -> bool:
+    """True when *text* is a dynmem index: an arrow entry or the template line."""
+    for line in text.splitlines():
+        s = line.strip()
+        if _is_template_target(s) or _is_arrow_line(s):
+            return True
+    return False
+
+
+def ensure_memory_path_header() -> bool:
+    """Insert or refresh the single absolute memories-path line. True when written."""
+    if _path_header_disabled():
+        return False
+    path = _memory_md()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    if not _is_dynmem_index(text):
+        return False  # stock store or prose file: never rewrite it
+    want = PATH_HEADER_TEMPLATE.format(path=_memory_dir())
+    lines = text.splitlines()
+    idx = next((i for i, line in enumerate(lines) if PATH_HEADER_RE.match(line.strip())), None)
+    if idx is not None and lines[idx].strip() == want:
+        return False
+    new_lines = list(lines)
+    if idx is not None:
+        new_lines[idx] = want
+    else:
+        insert_at = 1 if new_lines and new_lines[0].lstrip().startswith("#") else 0
+        new_lines.insert(insert_at, want)
+    body = "\n".join(new_lines) + ("\n" if text.endswith("\n") or not text else "")
+    try:
+        backup = _hermes_home() / "state" / "memory-header-backup.md"
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        if not backup.exists():
+            backup.write_text(text, encoding="utf-8")
+        import tempfile
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".mem_pathhdr_")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        os.replace(tmp, path)
+        _logger.info(
+            "[memory-shaper] memories-path header %s: %s",
+            "updated" if idx is not None else "inserted", want,
+        )
+        return True
+    except Exception as exc:
+        _logger.warning("[memory-shaper] memories-path header write failed: %s", exc)
+        return False
+
+
+def maybe_ensure_memory_path_header() -> bool:
+    """Stat-cached wrapper — pre_llm_call runs this on every turn."""
+    path = _memory_md()
+    try:
+        st = path.stat()
+    except Exception:
+        return False
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    if _PATH_HEADER_STAT.get("key") == key:
+        return False
+    changed = ensure_memory_path_header()
+    try:
+        st2 = path.stat()
+        _PATH_HEADER_STAT["key"] = (str(path), st2.st_mtime_ns, st2.st_size)
+    except Exception:
+        _PATH_HEADER_STAT.pop("key", None)
+    return changed
+
+
+def _path_header_hook(**_kwargs):
+    """pre_llm_call hook: keep the header current without touching the turn."""
+    try:
+        maybe_ensure_memory_path_header()
+    except Exception:
+        pass
+    return None
+
+
 def _names_index(cmd: str) -> bool:
     """True when the command string mentions the index file at all."""
     if "MEMORY.md" in cmd:
@@ -1010,6 +1118,7 @@ def handle_pre_tool_call(
             )
             if _adds:
                 _autoclean_template_lines()
+                maybe_ensure_memory_path_header()
         except Exception:
             pass  # cleanup must never break a memory write
 
@@ -1037,11 +1146,12 @@ def handle_pre_tool_call(
                 "      memory(action='remove', target='memory', old_text='<unique substring>')\n\n"
                 "Format rules (MEMORY.md is a flat, NEWLINE-delimited index):\n"
                 "  - ONE entry per line:  keyword,keyword,keyword → file.md\n"
-                "  - file.md is a BARE filename in ~/.hermes/memories/ (no path)\n"
+                "  - file.md is a BARE filename, resolved against the '# All memories are located in:'\n"
+                "    line at the top of MEMORY.md (never a path)\n"
                 "  - 5-20 comma-separated lowercase keywords per line\n"
                 "  - NO § markers, NO prose, NO blank-line paragraphs\n"
                 "  - Use the Unicode arrow → ONLY (ASCII '->' is rejected)\n\n"
-                "For verbose content: write the body to ~/.hermes/memories/<slug>.md "
+                "For verbose content: write the body to <path line>/<slug>.md "
                 "with write_file (those files are NOT locked), then append a line "
                 "'keyword,keyword → slug.md' to MEMORY.md.\n\n"
                 "MEMORY.md IS the index — there is no separate memory-index.md "
@@ -1072,6 +1182,18 @@ def register(ctx):
     """
     ctx.register_hook("pre_tool_call", handle_pre_tool_call)
     ctx.register_middleware("tool_execution", handle_tool_execution_middleware)
+    # v1.7.0: keep the single absolute memories-path line current. register()
+    # covers a fresh process (before the first prompt is assembled); the hook
+    # covers a MEMORY.md written mid-session, stat-cached so a turn costs one
+    # stat and no read.
+    try:
+        ctx.register_hook("pre_llm_call", _path_header_hook)
+    except Exception:
+        pass
+    try:
+        maybe_ensure_memory_path_header()
+    except Exception:
+        pass
     _register_memcheck(ctx)
 
 
@@ -1154,6 +1276,7 @@ def handle_tool_execution_middleware(**kwargs):
             )
             if did_add and '"success": false' not in str(result):
                 _autoclean_template_lines()
+                maybe_ensure_memory_path_header()
         except Exception:
             pass  # placeholder cleanup must never break a memory write
         return result

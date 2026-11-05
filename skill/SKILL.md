@@ -51,10 +51,38 @@ The index arrives as a bare list. Without an explicit routing instruction somewh
 
 **Supply the routing rule from one of two places:**
 
-1. **This skill (recommended).** The rule below is part of this skill's retrieval section; loading the skill carries it into context.
-2. **System prompt / personality.** Put it in your personality file or `config.yaml` so it is present in every session regardless of skill loading:
+1. **The index header (v1.7.0, recommended).** `memory-shaper` writes one absolute line into `MEMORY.md` on first run:
+
+   > `# All memories are located in: /home/<you>/.hermes/memories`
+
+   followed by the read rule (*match an entry, then read `<path>`/`<file>.md` directly — no search, no `ls`*, and *need two files? read both in one command*). Because the header is injected with the index, the instruction is present in every session without a skill load. Entries stay bare filenames; the path line is the only absolute path in the file.
+
+2. **This skill (belt and braces).** The rule below is part of this skill's retrieval section; loading the skill carries it into context.
+
+3. **System prompt / personality.** Put it in your personality file or `config.yaml` so it is present in every session regardless of skill loading:
 
    > Your memory index is a routing table, not a summary. When the conversation touches several keywords from one line — or an obviously related term the line doesn't spell out — read that file in full before answering. Prefer the line whose keyword set matches best overall, not the first line sharing a single word.
+
+### Related edges — the trail between topic files (v1.7.0)
+
+A topic file may end with **one** block linking to sibling files:
+
+```markdown
+## Related memories
+- when the user is cooking lasagna specifically → lasagna.md
+- when the question is about wine with dinner → cellar.md
+```
+
+Rules, enforced by `scripts/verify_index.py`:
+
+- heading is `## Related memories` (or `## Related edges`); a plain `## Related` link list is ordinary prose and is **not** validated
+- **max 5 edges** per file, each `- when <condition> → file.md`
+- the condition must be specific enough to be false sometimes (≥4 words); "when relevant" is not an edge
+- target must exist, be a bare filename, and not be the file itself
+- reciprocal edges (A→B and B→A) and longer cycles are **warnings** — deliberate two-way trails are allowed, they just risk ping-pong reads
+- the agent follows an edge **only when its condition matches**, and never more than **2 hops**
+
+Why this instead of splitting a big topic into many files: the relationship block is paid only when the parent file is read, never in the always-injected index. It gives depth without a per-turn cost, and it keeps one fact in one home — links, not copies.
 
 ### Never stop at "no memory of that"
 

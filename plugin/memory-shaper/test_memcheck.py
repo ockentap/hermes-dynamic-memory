@@ -26,8 +26,8 @@ INDEX = """# index header
 
 keyword,keyword,keyword → file.md
 hermes,gateway,telegram,restart,systemd → gateway-restart.md
-klima,aklima,connectlife,hisense,svrake → aklima-android-app.md
-klima,darkswords,protocol,shard,novus → medivia-open-server.md
+heater,thermostat,hvac,valve,radiator → thermostat-app.md
+heater,boiler,protocol,pipe,pressure → boiler-service.md
 """
 
 BODY_A = """# gateway restart
@@ -103,8 +103,8 @@ def test_validate_flags_invented_file():
 
 
 def test_validate_wrong_needs_alternative():
-    sample = memcheck.parse_tag('<mc t="2" verdict="wrong" wrong="aklima-android-app.md" right="null" hook="klima">')
-    problems = memcheck.validate(sample, ENTRIES, {}, ["klima is broken"])
+    sample = memcheck.parse_tag('<mc t="2" verdict="wrong" wrong="thermostat-app.md" right="null" hook="heater">')
+    problems = memcheck.validate(sample, ENTRIES, {}, ["heater is broken"])
     assert "wrong_without_alternative" in problems
 
 
@@ -112,26 +112,26 @@ def test_validate_untraceable_hook_is_not_evidence():
     # `gateway` is on the CORRECT line, not on the line that misfired, so it
     # cannot explain the misfire and must not be demoted.
     sample = memcheck.parse_tag(
-        '<mc t="2" verdict="wrong" wrong="aklima-android-app.md" right="gateway-restart.md" hook="gateway">')
+        '<mc t="2" verdict="wrong" wrong="thermostat-app.md" right="gateway-restart.md" hook="gateway">')
     problems = memcheck.validate(sample, ENTRIES, {}, ["restart the gateway"])
     assert "hook_untraceable" in problems
 
 
 def test_validate_hook_off_the_wrong_line_is_not_evidence():
-    # `svrake` is on the aKlima line, but the user never typed it this turn.
+    # `radiator` is on the thermostat line, but the user never typed it this turn.
     sample = memcheck.parse_tag(
-        '<mc t="2" verdict="wrong" wrong="aklima-android-app.md" right="gateway-restart.md" hook="svrake">')
+        '<mc t="2" verdict="wrong" wrong="thermostat-app.md" right="gateway-restart.md" hook="radiator">')
     problems = memcheck.validate(sample, ENTRIES, {}, ["the gateway will not restart"])
     assert "hook_untraceable" in problems
 
 
 def test_validate_clean_wrong_sample():
     sample = memcheck.parse_tag(
-        '<mc t="2" verdict="wrong" wrong="aklima-android-app.md" right="gateway-restart.md" hook="svrake">')
-    # `svrake` is on the wrong line, the user typed it, and the correction names
+        '<mc t="2" verdict="wrong" wrong="thermostat-app.md" right="gateway-restart.md" hook="radiator">')
+    # `radiator` is on the wrong line, the user typed it, and the correction names
     # the destination with one of its own keywords ("gateway"). Actionable shape.
     problems = memcheck.validate(sample, ENTRIES, {"gateway-restart.md": BODY_A},
-                                 ["svrake does nothing on the AC",
+                                 ["radiator does nothing on the AC",
                                   "no, I meant the gateway restart thing"])
     assert problems == []
 
@@ -145,9 +145,9 @@ def test_hook_must_be_one_keyword_not_a_phrase():
 
 def test_correction_must_name_the_destination():
     sample = memcheck.parse_tag(
-        '<mc t="2" verdict="wrong" wrong="aklima-android-app.md" right="gateway-restart.md" hook="svrake">')
+        '<mc t="2" verdict="wrong" wrong="thermostat-app.md" right="gateway-restart.md" hook="radiator">')
     problems = memcheck.validate(sample, ENTRIES, {"gateway-restart.md": BODY_A},
-                                 ["svrake does nothing", "no, the one from last Tuesday"])
+                                 ["radiator does nothing", "no, the one from last Tuesday"])
     assert "correction_does_not_name_target" in problems
 
 
@@ -162,10 +162,10 @@ def test_validate_fact_not_in_file():
 # --------------------------------------------------------------- routing
 
 def test_prompt_terms_rejects_shared_words():
-    terms = memcheck.prompt_terms("klima gateway svrake absurdlylongword", ENTRIES)
-    # `klima` sits on two lines; `gateway` and `svrake` on one each.
-    assert "klima" not in terms
-    assert "svrake" in terms and "gateway" in terms
+    terms = memcheck.prompt_terms("heater gateway radiator absurdlylongword", ENTRIES)
+    # `heater` sits on two lines; `gateway` and `radiator` on one each.
+    assert "heater" not in terms
+    assert "radiator" in terms and "gateway" in terms
 
 
 def test_prompt_terms_drops_stopwords_and_target_words():
@@ -221,10 +221,10 @@ def _sample(**kw):
 
 def test_score_is_asymmetric_and_ignores_invalid():
     samples = [
-        _sample(verdict="wrong", wrong="aklima-android-app.md", hook="klima"),
-        _sample(verdict="wrong", wrong="aklima-android-app.md", hook="klima"),
-        _sample(verdict="ok", used_files=["gateway-restart.md"], terms=["svrake"]),
-        _sample(verdict="ok", used_files=["gateway-restart.md"], terms=["svrake"]),
+        _sample(verdict="wrong", wrong="thermostat-app.md", hook="heater"),
+        _sample(verdict="wrong", wrong="thermostat-app.md", hook="heater"),
+        _sample(verdict="ok", used_files=["gateway-restart.md"], terms=["radiator"]),
+        _sample(verdict="ok", used_files=["gateway-restart.md"], terms=["radiator"]),
         _sample(verdict="ok", used_files=["gateway-restart.md"], terms=["bogus"],
                 problems=["hook_untraceable"]),
         _sample(verdict="unsure"),
@@ -232,29 +232,29 @@ def test_score_is_asymmetric_and_ignores_invalid():
     rep = memcheck.score(samples)
     assert rep["samples"] == 6
     assert rep["ignored"] == 2
-    assert rep["review"]["aklima-android-app.md"]["klima"] == -4.0
-    assert rep["promote"]["gateway-restart.md"] == {"svrake": 2.0}
+    assert rep["review"]["thermostat-app.md"]["heater"] == -4.0
+    assert rep["promote"]["gateway-restart.md"] == {"radiator": 2.0}
     assert "bogus" not in rep["promote"].get("gateway-restart.md", {})
 
 
 def test_hook_shared_flags_a_collision():
-    # `klima` is on BOTH the aKlima line and the medivia line (see INDEX) and the
+    # `heater` is on BOTH the thermostat line and the boiler line (see INDEX) and the
     # user typed it: that is a collision, not a bad keyword.
-    assert memcheck.hook_shared("klima", ["aklima-android-app.md"],
-                                ["medivia-open-server.md"], ENTRIES, ["klima is slow"])
-    # `svrake` is only on the aKlima line: a genuine one-sided miss.
-    assert not memcheck.hook_shared("svrake", ["aklima-android-app.md"],
-                                    ["medivia-open-server.md"], ENTRIES, ["svrake is broken"])
+    assert memcheck.hook_shared("heater", ["thermostat-app.md"],
+                                ["boiler-service.md"], ENTRIES, ["heater is slow"])
+    # `radiator` is only on the thermostat line: a genuine one-sided miss.
+    assert not memcheck.hook_shared("radiator", ["thermostat-app.md"],
+                                    ["boiler-service.md"], ENTRIES, ["radiator is broken"])
 
 
 def test_score_never_demotes_a_shared_hook():
     samples = [
-        _sample(verdict="wrong", wrong="aklima-android-app.md",
-                right="medivia-open-server.md", hook="klima", hook_shared=True),
+        _sample(verdict="wrong", wrong="thermostat-app.md",
+                right="boiler-service.md", hook="heater", hook_shared=True),
     ]
     rep = memcheck.score(samples)
     assert rep["review"] == {}
-    assert rep["ambiguous_hooks"] == {"aklima-android-app.md": 1}
+    assert rep["ambiguous_hooks"] == {"thermostat-app.md": 1}
 
 
 # ------------------------------------------------------------ hook wiring
@@ -265,7 +265,7 @@ def _store(tmp_path: Path) -> Path:
     mem.mkdir(parents=True)
     (mem / "MEMORY.md").write_text(INDEX, encoding="utf-8")
     (mem / "gateway-restart.md").write_text(BODY_A, encoding="utf-8")
-    (mem / "aklima-android-app.md").write_text("aklima klima svrake\n", encoding="utf-8")
+    (mem / "thermostat-app.md").write_text("thermostat heater radiator\n", encoding="utf-8")
     return home
 
 
@@ -278,7 +278,7 @@ def test_pre_llm_call_injects_once(tmp_path, monkeypatch):
     assert ctx and "<mc t=\"1\"" in ctx["context"]
     # Turn 2 gets the verdict tail.
     ctx2 = memcheck_hooks.pre_llm_call(
-        session_id="s1", user_message="no, I meant the klima unit",
+        session_id="s1", user_message="no, I meant the heater unit",
         conversation_history=[{"role": "user", "content": "the gateway will not restart"},
                               {"role": "assistant", "content": "..."}],
         is_first_turn=False, platform="telegram")
@@ -301,7 +301,7 @@ def test_transform_strips_and_logs_valid_sample(tmp_path, monkeypatch):
                                 conversation_history=[], is_first_turn=True, platform="telegram")
     out = memcheck_hooks.transform_llm_output(
         response_text=('Use `hermes gateway restart`.\n'
-                       '<mc t="1" opened="gateway-restart.md" rejected="aklima-android-app.md" hook="gateway">'),
+                       '<mc t="1" opened="gateway-restart.md" rejected="thermostat-app.md" hook="gateway">'),
         session_id="s2", platform="telegram", turn_id="t1")
     assert out == "Use `hermes gateway restart`."
     rec = json.loads(memcheck.samples_path(home).read_text(encoding="utf-8").splitlines()[-1])

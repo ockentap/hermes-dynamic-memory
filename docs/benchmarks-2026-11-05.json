@@ -1,0 +1,128 @@
+{
+ "_note": "Measured 2026-11-05 on the author's box: Hermes v0.22.5, deepseek-v4.1-flash, 142-topic store (~200 KB). Sources: ~/hackathon-demo/bench (results.json, routing_results.json, real_results_v2.json, noisy_state.json).",
+ "resident_cost": [
+  {
+   "name": "stock memory (30k cap)",
+   "tokens": 13948
+  },
+  {
+   "name": "intelligent_memory",
+   "tokens": 6552
+  },
+  {
+   "name": "entropicmem",
+   "tokens": 6855
+  },
+  {
+   "name": "dynmem",
+   "tokens": 6946
+  },
+  {
+   "name": "openltm",
+   "tokens": 7538
+  },
+  {
+   "name": "chronicle",
+   "tokens": 8139
+  }
+ ],
+ "routing": [
+  {
+   "name": "dynmem",
+   "top1": 10,
+   "top10": 10
+  },
+  {
+   "name": "entropicmem\n(documents)",
+   "top1": 5,
+   "top10": 8
+  },
+  {
+   "name": "entropicmem\n(bullet facts)",
+   "top1": 4,
+   "top10": 6
+  },
+  {
+   "name": "entropicmem\n(+embeddings)",
+   "top1": 4,
+   "top10": 7
+  }
+ ],
+ "write_cost": [
+  {
+   "name": "dynmem",
+   "input_tokens": 19192
+  },
+  {
+   "name": "entropicmem\n+embeddings",
+   "input_tokens": 37453
+  },
+  {
+   "name": "entropicmem\n(FTS only)",
+   "input_tokens": 100841
+  }
+ ],
+ "ingest_per_session": [
+  {
+   "name": "dynmem",
+   "input_tokens": 24322,
+   "output_tokens": 7325
+  },
+  {
+   "name": "entropicmem",
+   "input_tokens": 23338,
+   "output_tokens": 7318
+  }
+ ],
+ "index_growth": [
+  {
+   "topics": 134,
+   "tokens_per_turn": 5034
+  },
+  {
+   "topics": 200,
+   "tokens_per_turn": 7514
+  },
+  {
+   "topics": 300,
+   "tokens_per_turn": 11271
+  },
+  {
+   "topics": 500,
+   "tokens_per_turn": 18786
+  },
+  {
+   "topics": 1000,
+   "tokens_per_turn": 37572
+  }
+ ],
+ "fidelity": [
+  {
+   "name": "dynmem",
+   "memory": 20,
+   "prose": 19.5,
+   "noise": 11
+  },
+  {
+   "name": "entropicmem",
+   "memory": 20,
+   "prose": 20,
+   "noise": 14
+  }
+ ],
+ "headline": {
+  "stock_cap_chars": 30000,
+  "stock_topics_that_fit": 22,
+  "topics_on_disk": 142,
+  "dynmem_idle_tokens": 6946,
+  "stock_idle_tokens": 13948,
+  "routing_top1_dynmem": 10,
+  "routing_top1_best_competitor": 5,
+  "write_tokens_dynmem": 19192,
+  "write_tokens_competitor_fts": 100841,
+  "write_tokens_competitor_embeddings": 37453,
+  "ingest_tokens_per_session": 24322,
+  "story_facts_both": 20,
+  "retractions_both": 7
+ }
+}

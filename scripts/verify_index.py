@@ -256,14 +256,27 @@ def main() -> int:
     for reason, line in bad:
         print(f"  [FAIL] {reason}: {line}")
 
+    # Related-edge validation runs BEFORE the orphan check: a child topic file
+    # that is reachable through a `## Related` edge is not an orphan, even
+    # without its own index line. That is the point of the trail — a detail file
+    # hangs off its parent instead of costing a line in the always-injected index.
+    rel_ok, rel_bad, rel_warn = check_related(memdir, onfile)
+    related_targets = {
+        target
+        for path in glob.glob(os.path.join(memdir, "*.md"))
+        for _, block in related_blocks(open(path, encoding="utf-8", errors="replace").read())
+        for _, line in block
+        if (m := RELATED_EDGE_RE.match(line.strip()))
+        for target in [m.group("target")]
+    }
+
     # Reverse check: files on disk not referenced by any line. Files named in the
     # header block count as referenced — dynmem points its own docs at the header
-    # instead of giving each one an index line.
-    orphans = sorted(onfile - seen_targets - header_refs)
+    # instead of giving each one an index line — and so does any Related target.
+    orphans = sorted(onfile - seen_targets - header_refs - related_targets)
     for o in orphans:
         print(f"  [FAIL] ANTI-ORPHAN: file '{o}' exists on disk but has no index line")
 
-    rel_ok, rel_bad, rel_warn = check_related(memdir, onfile)
     for base, lineno, reason in rel_bad:
         print(f"  [FAIL] {reason} ({base}:{lineno})")
     for base, reason in rel_warn:

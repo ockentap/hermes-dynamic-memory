@@ -131,6 +131,19 @@ def test_no_block_is_fine(verify, tmp_path):
     assert (ok, bad, warn) == (0, [], [])
 
 
+def test_child_reachable_by_edge_is_not_an_orphan(tmp_path):
+    """A detail file reached through a Related edge needs no index line of its own."""
+    memdir = _memdir(tmp_path, "## Related\n- when the user is cooking lasagna → lasagna.md\n")
+    # lasagna.md has no index line: only the edge points at it.
+    idx = (memdir / "MEMORY.md").read_text(encoding="utf-8")
+    idx = "\n".join(l for l in idx.splitlines() if "lasagna" not in l) + "\n"
+    (memdir / "MEMORY.md").write_text(idx, encoding="utf-8")
+    r = subprocess.run([sys.executable, str(SCRIPT), str(memdir / "MEMORY.md")],
+                       capture_output=True, text=True)
+    assert "ANTI-ORPHAN" not in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
 def test_cli_exit_code_reflects_related_failures(tmp_path):
     """End to end: a bad Related block must make the validator exit 1."""
     memdir = _memdir(tmp_path, "## Related\n- when the user asks about a dish → missing.md\n")

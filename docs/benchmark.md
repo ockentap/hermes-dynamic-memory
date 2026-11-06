@@ -178,7 +178,8 @@ Fixtures and scripts in `/tmp/bench/`: `facts.json`, `install_facts.py`,
 transcripts. Containers `hermes-native` (`hermes-native:0.21.3`) and `hermes2`
 (`hermes-dynmem:1.4.3`); both accept `DEEPSEEK_API_KEY` via `-e` and neither
 bakes a credential. Raw answers for all runs are committed as
-`docs/benchmark-raw-results.json`.
+`docs/benchmark-raw-results.json` (transcripts from before the 1.8.0 rename were
+normalised to the current plugin name; no other text changed).
 
 ## Conclusion
 

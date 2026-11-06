@@ -15,7 +15,7 @@ import pathlib
 
 import pytest
 
-PLUGIN_PATH = pathlib.Path(__file__).resolve().parents[1] / "plugin" / "memory-shaper" / "plugin.py"
+PLUGIN_PATH = pathlib.Path(__file__).resolve().parents[1] / "plugin" / "dynmem" / "plugin.py"
 
 HEADER = (
     "# Dynamic Memory Index\n"
@@ -27,7 +27,7 @@ HEADER = (
 
 @pytest.fixture
 def shaper(tmp_path, monkeypatch):
-    spec = importlib.util.spec_from_file_location("memory_shaper_format_under_test", PLUGIN_PATH)
+    spec = importlib.util.spec_from_file_location("dynmem_format_under_test", PLUGIN_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     home = tmp_path / "hermes"

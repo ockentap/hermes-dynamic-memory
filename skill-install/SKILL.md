@@ -57,9 +57,9 @@ plugin does not need it either way.
 ## 2. Install the plugin
 
 ```bash
-mkdir -p $HERMES_HOME/plugins/memory-shaper
-cp -r <repo>/plugin/memory-shaper/. $HERMES_HOME/plugins/memory-shaper/
-hermes plugins enable memory-shaper
+mkdir -p $HERMES_HOME/plugins/dynmem
+cp -r <repo>/plugin/dynmem/. $HERMES_HOME/plugins/dynmem/
+hermes plugins enable dynmem
 hermes plugins list | grep shaper      # expect: enabled + a version
 ```
 
@@ -129,8 +129,8 @@ Then the only test that matters — a write and a read in two sessions:
   the index — a redirect to it, `| tee MEMORY.md`, `sort -o MEMORY.md`,
   `sed -i … MEMORY.md`, or a command substitution in a command that names it.
 - **Protected lines**: removing or replacing the structural template line is
-  refused without `MEMORY_SHAPER_ALLOW_REWRITE=1` or
-  `$HERMES_HOME/state/.memory_shaper_rewrite_approved`.
+  refused without `DYNMEM_ALLOW_REWRITE=1` or
+  `$HERMES_HOME/state/.dynmem_rewrite_approved`.
 - **Watchdog scheduling**: it is a plain script — run it from cron with
   `--home`, and it stays silent unless it archives something or the cap fires.
 - **Updates**: after `hermes update`, re-run the write test and

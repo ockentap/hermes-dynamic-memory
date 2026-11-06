@@ -168,8 +168,8 @@ Also expected, above the 140-char threshold. Same fix: topic file, then pointer.
 ### Wholesale rewrite is refused
 
 Working as designed. The hook cannot safely perform a full rewrite and says so.
-Get explicit user scope approval, then set `MEMORY_SHAPER_ALLOW_REWRITE=1` (or
-create `~/.hermes/state/.memory_shaper_rewrite_approved`), back up first, write
+Get explicit user scope approval, then set `DYNMEM_ALLOW_REWRITE=1` (or
+create `~/.hermes/state/.dynmem_rewrite_approved`), back up first, write
 atomically from a script, and verify every line resolves afterwards.
 
 ## Plugin-layer failures
@@ -177,8 +177,8 @@ atomically from a script, and verify every line resolves afterwards.
 ### Plugin installed but not enabled
 
 ```bash
-hermes plugins list | grep memory-shaper   # "not enabled"?
-hermes plugins enable memory-shaper
+hermes plugins list | grep dynmem   # "not enabled"?
+hermes plugins enable dynmem
 ```
 
 Enabling takes effect **next session**. Enablement alone also prompts for tool-

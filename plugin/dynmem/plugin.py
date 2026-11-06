@@ -1,4 +1,4 @@
-# memory-shaper plugin
+# dynmem plugin
 #
 # Copyright 2026 ockentap
 # SPDX-License-Identifier: Apache-2.0
@@ -42,7 +42,7 @@ import os
 import re
 from pathlib import Path
 
-PLUGIN_ID = "memory-shaper"
+PLUGIN_ID = "dynmem"
 
 def _hermes_home() -> Path:
     """Resolve the active profile's home on EVERY call.
@@ -218,29 +218,33 @@ def _keyword_band_error(text: str) -> str | None:
         return None
     if len(kws) > MAX_KEYWORDS:
         return (
-            f"[memory-shaper] {len(kws)} keywords: an index line carries at most "
+            f"[dynmem] {len(kws)} keywords: an index line carries at most "
             f"{MAX_KEYWORDS}. Five of them are the locked automatic keywords; the "
             "rest are the model's own (5-15). A line already at "
             f"{MAX_KEYWORDS} accepts nothing until a human removes a keyword."
         )
     return (
-        f"[memory-shaper] {len(kws)} keywords: an index line carries at least "
+        f"[dynmem] {len(kws)} keywords: an index line carries at least "
         f"{MIN_KEYWORDS}. Propose edits, do not strip a line below the floor."
     )
 
 
 # User-approved wholesale rewrite mechanism (2026-09-17 fix).
-# Set MEMORY_SHAPER_ALLOW_REWRITE=1 (env) or create touch-file
-# ~/.hermes/state/.memory_shaper_rewrite_approved to allow a full
+# Set DYNMEM_ALLOW_REWRITE=1 (env) or create touch-file
+# ~/.hermes/state/.dynmem_rewrite_approved to allow a full
 # rewrite of MEMORY.md (e.g. rebuilding from a verified script).
 def _approval_file() -> Path:
+    return _hermes_home() / "state" / ".dynmem_rewrite_approved"
+
+def _legacy_approval_file() -> Path:
+    # pre-1.8 name; still honoured so an existing approval file keeps working
     return _hermes_home() / "state" / ".memory_shaper_rewrite_approved"
 
 def _rewrites_approved() -> bool:
-    if os.environ.get("MEMORY_SHAPER_ALLOW_REWRITE") == "1":
+    if os.environ.get("DYNMEM_ALLOW_REWRITE") == "1" or os.environ.get("MEMORY_SHAPER_ALLOW_REWRITE") == "1":
         return True
     try:
-        return _approval_file().exists()
+        return _approval_file().exists() or _legacy_approval_file().exists()
     except Exception:
         return False
 
@@ -262,26 +266,29 @@ def _memory_md_resolved() -> str:
 # The lock's refusal message tells the agent to "ask the user for explicit scope
 # approval" before rewriting MEMORY.md — but historically there was NO way to
 # signal that approval to the hook, making the instruction a dead end. Honour:
-#   1. env var MEMORY_SHAPER_ALLOW_REWRITE=1
-#   2. sentinel file ~/.hermes/state/.memory_shaper_rewrite_approved
-ALLOW_REWRITE_ENV = "MEMORY_SHAPER_ALLOW_REWRITE"
+#   1. env var DYNMEM_ALLOW_REWRITE=1
+#   2. sentinel file ~/.hermes/state/.dynmem_rewrite_approved
+ALLOW_REWRITE_ENV = "DYNMEM_ALLOW_REWRITE"
+LEGACY_ALLOW_REWRITE_ENV = "MEMORY_SHAPER_ALLOW_REWRITE"
 def _rewrite_approved() -> bool:
     """True if the user has approved a wholesale MEMORY.md rewrite."""
     if os.environ.get(ALLOW_REWRITE_ENV, "").strip() in ("1", "true", "yes"):
         return True
+    if os.environ.get(LEGACY_ALLOW_REWRITE_ENV, "").strip() in ("1", "true", "yes"):
+        return True
     try:
-        return _approval_file().exists()
+        return _approval_file().exists() or _legacy_approval_file().exists()
     except Exception:
         return False
 
 
 # ── Template-line protection and one-time placeholder cleanup ────────────────
 _TEMPLATE_LINE_MSG = (
-    "[memory-shaper] refused: that text is the template line "
+    "[dynmem] refused: that text is the template line "
     "'keyword,keyword,keyword → file.md'. It is structural — the header block ends "
     "there, and the watchdog, validator and memory tool all locate the first entry "
     "by it. Editing or deleting it needs explicit user approval "
-    "(MEMORY_SHAPER_ALLOW_REWRITE=1 or ~/.hermes/state/.memory_shaper_rewrite_approved)."
+    "(DYNMEM_ALLOW_REWRITE=1 or ~/.hermes/state/.dynmem_rewrite_approved)."
 )
 
 _TEMPLATE_NOTE_PREFIX = "TEMPLATE \u2014"
@@ -314,13 +321,13 @@ def _is_template_target(old_text: str) -> bool:
 
 
 _HEADER_MSG = (
-    "[memory-shaper] refused: that text is part of the index header. On the stock "
+    "[dynmem] refused: that text is part of the index header. On the stock "
     "memory store the header is a single entry — the store joins entries with a "
     "'\u00a7' line, so every header line belongs to one entry — and an edit whose "
     "old_text lands anywhere inside it rewrites or deletes the whole preamble in "
     "one call. Editing the header needs explicit user approval: set "
-    "MEMORY_SHAPER_ALLOW_REWRITE=1 or create "
-    "~/.hermes/state/.memory_shaper_rewrite_approved."
+    "DYNMEM_ALLOW_REWRITE=1 or create "
+    "~/.hermes/state/.dynmem_rewrite_approved."
 )
 
 
@@ -405,7 +412,7 @@ def _autoclean_template_lines() -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write("\n".join(keep) + "\n")
         os.replace(tmp, path)
-        _logger.info("[memory-shaper] removed %d template placeholder line(s)",
+        _logger.info("[dynmem] removed %d template placeholder line(s)",
                      len(text.splitlines()) - len(keep))
     except Exception:
         pass
@@ -426,7 +433,7 @@ def _autoclean_template_lines() -> None:
 #   * line present with a stale path (profile moved)     → rewritten
 #   * no line                                            → inserted after the title
 # Writes are atomic, one backup slot lives in <hermes>/state/, and
-# MEMORY_SHAPER_NO_PATH_HEADER=1 disables the feature entirely.
+# DYNMEM_NO_PATH_HEADER=1 disables the feature entirely.
 # Matches the placeholder shipped in the template too, so a hand-copied
 # "<MEMORIES_DIR>" is replaced on first run instead of leaving two path lines.
 PATH_HEADER_RE = re.compile(
@@ -437,7 +444,10 @@ _PATH_HEADER_STAT: dict[str, tuple] = {}
 
 
 def _path_header_disabled() -> bool:
-    return os.environ.get("MEMORY_SHAPER_NO_PATH_HEADER", "").strip().lower() in {"1", "true", "yes"}
+    for var in ("DYNMEM_NO_PATH_HEADER", "MEMORY_SHAPER_NO_PATH_HEADER"):
+        if os.environ.get(var, "").strip().lower() in {"1", "true", "yes"}:
+            return True
+    return False
 
 
 def _is_dynmem_index(text: str) -> bool:
@@ -483,12 +493,12 @@ def ensure_memory_path_header() -> bool:
             fh.write(body)
         os.replace(tmp, path)
         _logger.info(
-            "[memory-shaper] memories-path header %s: %s",
+            "[dynmem] memories-path header %s: %s",
             "updated" if idx is not None else "inserted", want,
         )
         return True
     except Exception as exc:
-        _logger.warning("[memory-shaper] memories-path header write failed: %s", exc)
+        _logger.warning("[dynmem] memories-path header write failed: %s", exc)
         return False
 
 
@@ -705,7 +715,7 @@ def _check_patch_guard(old: str, content: str) -> dict | None:
         return {
             "action": "block",
             "message": (
-                "[memory-shaper] patch refused: content contains a line break. "
+                "[dynmem] patch refused: content contains a line break. "
                 "MEMORY.md entries are one line each; a patch that inserts \\n "
                 "splits an entry and corrupts the index."
             ),
@@ -715,7 +725,7 @@ def _check_patch_guard(old: str, content: str) -> dict | None:
         return {
             "action": "block",
             "message": (
-                "[memory-shaper] patch refused: the resulting entry would span "
+                "[dynmem] patch refused: the resulting entry would span "
                 "multiple lines. MEMORY.md entries are one line each."
             ),
         }
@@ -731,7 +741,7 @@ def _check_patch_guard(old: str, content: str) -> dict | None:
     return {
         "action": "block",
         "message": (
-            "[memory-shaper] patch refused: the resulting index line would be malformed.\n"
+            "[dynmem] patch refused: the resulting index line would be malformed.\n"
             f"  before: {line[:100]}\n"
             f"  after:  {resulting[:100]}\n"
             "Every MEMORY.md line must keep the form:\n"
@@ -752,15 +762,15 @@ def _check_replace_guard(old: str, content: str, memory_md_path: str | None = No
     entries = current_text.splitlines()
     matches = [i for i, e in enumerate(entries) if old in e]
     if len(matches) == 0:
-        return {"action": "block", "message": "[memory-shaper] replace refused: old_text did not match any entry line (0 matches)."}
+        return {"action": "block", "message": "[dynmem] replace refused: old_text did not match any entry line (0 matches)."}
     if len(matches) > 1:
-        return {"action": "block", "message": f"[memory-shaper] replace refused: old_text matched {len(matches)} entry lines (expected exactly 1). Use a longer, unique substring."}
+        return {"action": "block", "message": f"[dynmem] replace refused: old_text matched {len(matches)} entry lines (expected exactly 1). Use a longer, unique substring."}
     old_line = entries[matches[0]]
     if _is_separator_line(old_line):
         return {
             "action": "block",
             "message": (
-                "[memory-shaper] replace refused: old_text matched a separator "
+                "[dynmem] replace refused: old_text matched a separator "
                 "line emitted by the memory store, not an index entry. "
                 "Target the 'keyword,keyword \u2192 file.md' line itself."
             ),
@@ -771,7 +781,7 @@ def _check_replace_guard(old: str, content: str, memory_md_path: str | None = No
         return {
             "action": "block",
             "message": (
-                f"[memory-shaper] replace refused: target is one index line but "
+                f"[dynmem] replace refused: target is one index line but "
                 f"content spans {len(new_lines)} lines. One line per topic file."
             ),
         }
@@ -848,7 +858,7 @@ def handle_pre_tool_call(
                 if _act == "remove":
                     if (_is_template_target(_old) or _is_header_text(_old)) and not _rewrite_approved():
                         return {"action": "block", "message":
-                                f"[memory-shaper] Operation {idx}: " + _header_message(_old)}
+                                f"[dynmem] Operation {idx}: " + _header_message(_old)}
                     continue
                 # v0.22+ patch = SPAN replacement (rest of the entry is kept);
                 # validate the resulting line, not the fragment (teknium1 review
@@ -858,7 +868,7 @@ def handle_pre_tool_call(
                     result = _check_patch_guard(old=_old, content=_cont)
                     if result:
                         return {**result, "message":
-                                f"[memory-shaper] Operation {idx}: " + result["message"]}
+                                f"[dynmem] Operation {idx}: " + result["message"]}
                     continue
                 if not _cont:
                     # Empty-content operation → let it pass (removes are already excluded above).
@@ -873,7 +883,7 @@ def handle_pre_tool_call(
                     return {
                         "action": "block",
                         "message": (
-                            f"[memory-shaper] Operation {idx}: Wrong arrow. MEMORY.md uses the "
+                            f"[dynmem] Operation {idx}: Wrong arrow. MEMORY.md uses the "
                             "Unicode arrow ONLY:\n"
                             "  keyword,keyword,keyword → file.md\n"
                             "You wrote ASCII '->'. Replace it with '→' (U+2192), one space "
@@ -885,11 +895,11 @@ def handle_pre_tool_call(
                         band = _keyword_band_error(_cont)
                         if band:
                             return {"action": "block",
-                                    "message": f"[memory-shaper] Operation {idx}: " + band}
+                                    "message": f"[dynmem] Operation {idx}: " + band}
                         return {
                             "action": "block",
                             "message": (
-                                f"[memory-shaper] Operation {idx}: Malformed index line in operations[]. "
+                                f"[dynmem] Operation {idx}: Malformed index line in operations[]. "
                                 f"Expected one line: keyword,kw → file.md\n"
                                 f"Rules:\n"
                                 f"  - file.md is a BARE filename in ~/.hermes/memories/\n"
@@ -904,7 +914,7 @@ def handle_pre_tool_call(
                     return {
                         "action": "block",
                         "message": (
-                            f"[memory-shaper] Operation {idx}: Content looks like human-language prose, "
+                            f"[dynmem] Operation {idx}: Content looks like human-language prose, "
                             f"not a keyword pointer.\n"
                             f"  comma/word ratio: {ratio:.3f} (minimum {MIN_COMMA_WORD_RATIO})\n"
                             f"  content length: {len(_cont)} chars\n"
@@ -924,7 +934,7 @@ def handle_pre_tool_call(
                     return {
                         "action": "block",
                         "message": (
-                            f"[memory-shaper] Operation {idx}: Verbose content ({len(_cont)} chars) "
+                            f"[dynmem] Operation {idx}: Verbose content ({len(_cont)} chars) "
                             "would bloat MEMORY.md.\n"
                             "Route it instead:\n"
                             f"  1. Write the verbose detail to {topic_file}\n"
@@ -942,7 +952,7 @@ def handle_pre_tool_call(
         if not content:
             return {}
 
-        _logger.info("[memory-shaper] memory() call, content_len=%d, action=%s", len(content), action)
+        _logger.info("[dynmem] memory() call, content_len=%d, action=%s", len(content), action)
 
         if action == "patch":
             # v0.22+ span semantics: validate the resulting entry line only.
@@ -974,9 +984,9 @@ def handle_pre_tool_call(
                 return {"action": "block", "message": _header_message(old_text)}
             matches = [i for i, e in enumerate(entries) if old_text in e]
             if len(matches) == 0:
-                return {"action": "block", "message": "[memory-shaper] replace refused: old_text did not match any entry line (0 matches)."}
+                return {"action": "block", "message": "[dynmem] replace refused: old_text did not match any entry line (0 matches)."}
             if len(matches) > 1:
-                return {"action": "block", "message": f"[memory-shaper] replace refused: old_text matched {len(matches)} entry lines (expected exactly 1). Use a longer, unique substring."}
+                return {"action": "block", "message": f"[dynmem] replace refused: old_text matched {len(matches)} entry lines (expected exactly 1). Use a longer, unique substring."}
             # Safety: a replace must never reduce the entry count by more than
             # one line. This makes whole-file clobber structurally impossible.
             old_line = entries[matches[0]]
@@ -986,7 +996,7 @@ def handle_pre_tool_call(
                 return {
                     "action": "block",
                     "message": (
-                        "[memory-shaper] replace refused: old_text matched a separator "
+                        "[dynmem] replace refused: old_text matched a separator "
                         "line emitted by the memory store, not an index entry. "
                         "Target the 'keyword,keyword → file.md' line itself."
                     ),
@@ -999,7 +1009,7 @@ def handle_pre_tool_call(
                 return {
                     "action": "block",
                     "message": (
-                        f"[memory-shaper] replace refused: target is one index line but "
+                        f"[dynmem] replace refused: target is one index line but "
                         f"content spans {len(new_lines)} lines. One line per topic file."
                     ),
                 }
@@ -1011,7 +1021,7 @@ def handle_pre_tool_call(
             return {
                 "action": "block",
                 "message": (
-                    "[memory-shaper] Wrong arrow. MEMORY.md uses the Unicode "
+                    "[dynmem] Wrong arrow. MEMORY.md uses the Unicode "
                     "arrow ONLY:\n"
                     "  keyword,keyword,keyword → file.md\n"
                     "You wrote ASCII '->'. Replace it with '→' (U+2192), one "
@@ -1037,7 +1047,7 @@ def handle_pre_tool_call(
                 return {
                     "action": "block",
                     "message": (
-                        "[memory-shaper] Wrong arrow. MEMORY.md uses the Unicode "
+                        "[dynmem] Wrong arrow. MEMORY.md uses the Unicode "
                         "arrow ONLY:\n"
                         "  keyword,keyword,keyword → file.md\n"
                         "You wrote ASCII '->'. Replace it with '→' (U+2192), one "
@@ -1049,7 +1059,7 @@ def handle_pre_tool_call(
             return {
                 "action": "block",
                 "message": (
-                    "[memory-shaper] Malformed index line. Expected exactly:\n"
+                    "[dynmem] Malformed index line. Expected exactly:\n"
                     "  keyword,keyword,keyword → file.md\n"
                     "Rules:\n"
                     "  - file.md is a BARE filename (no path, no dir, no ~)\n"
@@ -1070,7 +1080,7 @@ def handle_pre_tool_call(
             return {
                 "action": "block",
                 "message": (
-                    f"[memory-shaper] Content looks like human-language prose, "
+                    f"[dynmem] Content looks like human-language prose, "
                     f"not a keyword pointer.\n"
                     f"  comma/word ratio: {ratio:.3f} (minimum {MIN_COMMA_WORD_RATIO})\n"
                     f"  content length: {len(content)} chars\n"
@@ -1093,7 +1103,7 @@ def handle_pre_tool_call(
             return {
                 "action": "block",
                 "message": (
-                    f"[memory-shaper] Verbose content ({len(content)} chars) "
+                    f"[dynmem] Verbose content ({len(content)} chars) "
                     "would bloat MEMORY.md.\n"
                     "Route it instead:\n"
                     f"  1. Write the verbose detail to {topic_file}\n"
@@ -1125,13 +1135,13 @@ def handle_pre_tool_call(
         return {}
     if _targets_memory_md(args, tool_name):
         _logger.warning(
-            "[memory-shaper] BLOCKED %s targeting MEMORY.md (args keys: %s)",
+            "[dynmem] BLOCKED %s targeting MEMORY.md (args keys: %s)",
             tool_name, list(args.keys()) if isinstance(args, dict) else []
         )
         return {
             "action": "block",
             "message": (
-                f"[memory-shaper] {tool_name}() refused: MEMORY.md is write-locked.\n"
+                f"[dynmem] {tool_name}() refused: MEMORY.md is write-locked.\n"
                 f"Path detected: {args.get('path') or args.get('command') or '(unknown)'}\n\n"
                 "MEMORY.md is the runtime context file and can only be mutated through "
                 "the `memory` tool, whose hook enforces the one-line-per-topic index "
@@ -1160,8 +1170,8 @@ def handle_pre_tool_call(
                 "valid, fully-formed new file), stop and ask the user for explicit "
                 "scope approval first.\n"
                 "You can do this in two ways:\n"
-                "  • Set the environment variable: MEMORY_SHAPER_ALLOW_REWRITE=1, then retry.\n"
-                "  • Create the approval file: ~/.hermes/state/.memory_shaper_rewrite_approved (empty file).\n"
+                "  • Set the environment variable: DYNMEM_ALLOW_REWRITE=1, then retry.\n"
+                "  • Create the approval file: ~/.hermes/state/.dynmem_rewrite_approved (empty file).\n"
                 "After creating the approval, the rewrite will be allowed and will be logged."
             ),
         }
@@ -1219,9 +1229,9 @@ def _register_memcheck(ctx):
         import memcheck_hooks
         ctx.register_hook("pre_llm_call", memcheck_hooks.pre_llm_call)
         ctx.register_hook("transform_llm_output", memcheck_hooks.transform_llm_output)
-        _logger.info("[memory-shaper] memcheck hooks registered")
+        _logger.info("[dynmem] memcheck hooks registered")
     except Exception as exc:  # pragma: no cover - environment dependent
-        _logger.warning("[memory-shaper] memcheck hooks NOT registered: %s", exc)
+        _logger.warning("[dynmem] memcheck hooks NOT registered: %s", exc)
 
 
 def handle_tool_execution_middleware(**kwargs):
@@ -1253,9 +1263,9 @@ def handle_tool_execution_middleware(**kwargs):
     decision = handle_pre_tool_call("memory", raw_args)
 
     if isinstance(decision, dict) and decision.get("action") == "block":
-        msg = decision.get("message", "memory-shaper blocked this call")
+        msg = decision.get("message", "dynmem blocked this call")
         _logger.warning(
-            "[memory-shaper] middleware BLOCKED memory(): %s",
+            "[dynmem] middleware BLOCKED memory(): %s",
             (raw_args.get("content", "") or "")[:80],
         )
         # Return a JSON error so the model sees a tool failure.

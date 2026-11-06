@@ -51,7 +51,7 @@ Three rules make it work:
 3. **Links, not copies.** A topic file may end with `## Related memories` — at most five conditional
    edges, followed only when the condition matches, never more than two hops.
 
-`memory-shaper` enforces the format from the hook layer: no prose in `MEMORY.md`, no shell writes to
+`dynmem` enforces the format from the hook layer: no prose in `MEMORY.md`, no shell writes to
 it, an intact header, and validated entries (Unicode arrow, bare filenames, 5–20 keywords).
 `scripts/verify_index.py` checks the whole store, including Related edges.
 
@@ -223,7 +223,7 @@ lower bound: [`docs/live-index-retrieval.md`](docs/live-index-retrieval.md).
 
 ---
 
-## Governance: the memory-shaper plugin
+## Governance: the dynmem plugin
 
 A self-editing memory is both the feature and the failure mode.
 
@@ -245,7 +245,7 @@ file, and discards what does not check out. `python3 scripts/memcheck_report.py`
 
 ## Install
 
-**From the plugin catalog** (once the entry is merged): `hermes plugins install dynamic-memory` —
+**From the plugin catalog** (once the entry is merged): `hermes plugins install dynmem` —
 installs this repo pinned at a reviewed commit.
 
 **No core patch.** Stock Hermes joins entries with a `§` line, so the whole header is one entry and a
@@ -253,7 +253,7 @@ single `remove` would delete it. The plugin refuses any `remove` / `replace` / `
 `old_text` lands inside the header, and treats `§` as a separator it ignores, so the index works on an
 unmodified store. `scripts/patches/0001-flat-memory-separator.patch` is background only.
 
-1. **Plugin** — copy `plugin/memory-shaper/` to `~/.hermes/plugins/`, enable in `config.yaml`.
+1. **Plugin** — copy `plugin/dynmem/` to `~/.hermes/plugins/`, enable in `config.yaml`.
 2. **Skill** — copy `skill/` to `~/.hermes/skills/system-administration/dynamic-memory/`.
    `skill-install/` holds the fresh-box setup skill.
 3. **Adopt the format** — restructure the index into `keywords → file.md` lines, then:
@@ -265,7 +265,7 @@ unmodified store. `scripts/patches/0001-flat-memory-separator.patch` is backgrou
 4. **Verify the wiring, not just the logic:**
    ```bash
    python3 scripts/test_hook_cases.py
-   hermes plugins doctor ~/.hermes/plugins/memory-shaper   # 4 hooks registered
+   hermes plugins doctor ~/.hermes/plugins/dynmem   # 4 hooks registered
    ```
 5. **Optional lifecycle** — `python3 scripts/dynmem-watchdog.py --dry-run`, then schedule it.
 
@@ -277,7 +277,7 @@ instruction in the injected block, the default cap, `read_file`/`write_file` sha
 argument, and the prompt view disagreeing with the file view on separators. After upgrading:
 
 ```bash
-hermes plugins doctor ~/.hermes/plugins/memory-shaper && python3 scripts/test_hook_cases.py
+hermes plugins doctor ~/.hermes/plugins/dynmem && python3 scripts/test_hook_cases.py
 python3 scripts/verify_index.py ~/.hermes/memories/MEMORY.md
 ```
 
@@ -294,7 +294,7 @@ python3 scripts/verify_index.py ~/.hermes/memories/MEMORY.md
   index, hook-enforced governance and tested tooling in one drop-in package.
 
 ```
-plugin/memory-shaper/   the enforcement plugin
+plugin/dynmem/   the enforcement plugin
 skill/                  skill + diagnostic references
 scripts/                validator · watchdog · hook tests · chart generator
 examples/               synthetic demo index, topic files, archive

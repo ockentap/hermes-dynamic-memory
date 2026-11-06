@@ -34,7 +34,7 @@ line. A nested tree means intermediate nodes exist solely to be pointed at by
 other nodes, which the current check would flag as orphans.
 
 **4. The write-lock hook keys on a filename, not a path.**
-`plugin/memory-shaper/plugin.py` enforces the format on writes to `MEMORY.md`.
+`plugin/dynmem/plugin.py` enforces the format on writes to `MEMORY.md`.
 Nested routing would need the lock and the format checks to follow the traversal
 rather than guard a single flat file.
 

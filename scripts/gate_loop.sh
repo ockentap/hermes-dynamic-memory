@@ -22,8 +22,8 @@ REPO="${DYNMEM_REPO:-$HOME/hermes-dynamic-memory}"
 CONTAINER="${DYNMEM_GATE_CTR:-dynmem-gate}"
 IMAGE="nousresearch/hermes-agent:v0.22.5"
 PR_REPO="NousResearch/hermes-agent"
-PR_NUM=145016
-BRANCH="plugin-catalog/add-dynamic-memory"
+PR_NUM=149712
+BRANCH="catalog/memory-shaper-1.7.0"
 FORK="ockentap/hermes-agent"
 DK(){ sudo -n docker "$@"; }
 
@@ -37,12 +37,12 @@ stage_A(){ echo "== A: local unit battery =="
   (cd "$REPO" && python3 scripts/test_hook_cases.py) >/tmp/gateA.log 2>&1 \
     && ok "repo hook cases pass" || bad "repo hook cases FAILED (see /tmp/gateA.log)"
   # installed-plugin battery must match repo bytes (catch "fixed one, forgot the other")
-  if cmp -s "$REPO/plugin/memory-shaper/plugin.py" "$HOME/.hermes/plugins/memory-shaper/plugin.py"; then
+  if cmp -s "$REPO/plugin/dynmem/plugin.py" "$HOME/.hermes/plugins/dynmem/plugin.py"; then
     ok "installed plugin == repo plugin (byte-identical)"
   else
     bad "installed plugin DIFFERS from repo — sync them before shipping"
   fi
-  python3 -c "compile(open('$REPO/plugin/memory-shaper/plugin.py').read(),'p','exec')" 2>/dev/null \
+  python3 -c "compile(open('$REPO/plugin/dynmem/plugin.py').read(),'p','exec')" 2>/dev/null \
     && ok "plugin.py compiles" || bad "plugin.py does NOT compile"
 }
 
@@ -57,11 +57,11 @@ stage_B(){ echo "== B: oracle gate against real v0.22.5 memory tool =="
     DK start "$CONTAINER" >/dev/null || { bad "could not start $CONTAINER"; return; }
   fi
   # install the repo's plugin into the container (repo is canonical)
-  DK exec "$CONTAINER" mkdir -p /opt/hermes/plugins/memory-shaper >/dev/null
-  DK cp "$REPO/plugin/memory-shaper/plugin.py"  "$CONTAINER:/opt/hermes/plugins/memory-shaper/plugin.py"
-  DK cp "$REPO/plugin/memory-shaper/plugin.yaml" "$CONTAINER:/opt/hermes/plugins/memory-shaper/plugin.yaml"
-  DK cp "$REPO/plugin/memory-shaper/__init__.py" "$CONTAINER:/opt/hermes/plugins/memory-shaper/__init__.py"
-  DK exec "$CONTAINER" rm -rf /opt/hermes/plugins/memory-shaper/__pycache__ >/dev/null
+  DK exec "$CONTAINER" mkdir -p /opt/hermes/plugins/dynmem >/dev/null
+  DK cp "$REPO/plugin/dynmem/plugin.py"  "$CONTAINER:/opt/hermes/plugins/dynmem/plugin.py"
+  DK cp "$REPO/plugin/dynmem/plugin.yaml" "$CONTAINER:/opt/hermes/plugins/dynmem/plugin.yaml"
+  DK cp "$REPO/plugin/dynmem/__init__.py" "$CONTAINER:/opt/hermes/plugins/dynmem/__init__.py"
+  DK exec "$CONTAINER" rm -rf /opt/hermes/plugins/dynmem/__pycache__ >/dev/null
   DK cp "$REPO/scripts/gate_oracle.py" "$CONTAINER:/opt/gate_oracle.py"
   if DK exec -w /opt "$CONTAINER" python3 /opt/gate_oracle.py --verbose >/tmp/gateB.log 2>&1; then
     n=$(grep -c '^✅' /tmp/gateB.log || true)
@@ -83,7 +83,7 @@ stage_B(){ echo "== B: oracle gate against real v0.22.5 memory tool =="
 
 # ---------------------------------------------------------------- stage C
 stage_C(){ echo "== C: catalog CI gate (hermes plugins validate) =="
-  if hermes plugins validate "$REPO/plugin/memory-shaper" >/tmp/gateC.log 2>&1; then
+  if hermes plugins validate "$REPO/plugin/dynmem" >/tmp/gateC.log 2>&1; then
     ok "plugins validate passed"
   else
     # 0.21.3 on this box lacks 'requires_hermes' enforcement parity with main;
@@ -100,8 +100,8 @@ stage_C(){ echo "== C: catalog CI gate (hermes plugins validate) =="
 
 # ---------------------------------------------------------------- stage D
 stage_D(){ echo "== D: version/manifest hygiene =="
-  pv=$(grep '^version:' "$REPO/plugin/memory-shaper/plugin.yaml" | sed 's/version: *//')
-  ev=$(gh api "repos/$FORK/contents/plugin-catalog/dynamic-memory.yaml?ref=$BRANCH" -q '.content' 2>/dev/null | base64 -d | grep '^version:' | sed 's/version: *"\?\([0-9.]*\)"\?/\1/')
+  pv=$(grep '^version:' "$REPO/plugin/dynmem/plugin.yaml" | sed 's/version: *//')
+  ev=$(gh api "repos/$FORK/contents/plugin-catalog/dynmem.yaml?ref=$BRANCH" -q '.content' 2>/dev/null | base64 -d | grep '^version:' | sed 's/version: *"\?\([0-9.]*\)"\?/\1/')
   if [[ -n "$ev" && "$pv" != "$ev" ]]; then
     note "plugin.yaml=$pv  catalog entry=$ev  (ship will re-pin the entry to $pv)"
   else
@@ -123,8 +123,8 @@ ship(){ echo "=== SHIP ==="
   cd "$REPO"
   git add -A
   if ! git diff --cached --quiet; then
-    pv=$(grep '^version:' plugin/memory-shaper/plugin.yaml | sed 's/version: *//')
-    git commit -m "memory-shaper ${pv}: profile-aware hints, exact store span-semantics, honest disclosures
+    pv=$(grep '^version:' plugin/dynmem/plugin.yaml | sed 's/version: *//')
+    git commit -m "dynmem ${pv}: profile-aware hints, exact store span-semantics, honest disclosures
 
 - verbose-routing hints resolve the ACTIVE profile's memories dir per call
   (previously interpolated import-time constants under multiplexing)
@@ -150,16 +150,16 @@ ship(){ echo "=== SHIP ==="
   if [[ -f "$REVISED_ENTRY" ]]; then
     cp "$REVISED_ENTRY" "$tmp"
     sed -i "s/^sha: .*/sha: $sha/" "$tmp"
-    sed -i "s/^version: .*/version: \"$(grep '^version:' "$REPO/plugin/memory-shaper/plugin.yaml" | sed 's/version: *//')\"/" "$tmp"
+    sed -i "s/^version: .*/version: \"$(grep '^version:' "$REPO/plugin/dynmem/plugin.yaml" | sed 's/version: *//')\"/" "$tmp"
     note "entry built from revised text ($REVISED_ENTRY)"
   else
-    gh api "repos/$FORK/contents/plugin-catalog/dynamic-memory.yaml?ref=$BRANCH" -q '.content' | base64 -d > "$tmp"
-    pv=$(grep '^version:' "$REPO/plugin/memory-shaper/plugin.yaml" | sed 's/version: *//')
+    gh api "repos/$FORK/contents/plugin-catalog/dynmem.yaml?ref=$BRANCH" -q '.content' | base64 -d > "$tmp"
+    pv=$(grep '^version:' "$REPO/plugin/dynmem/plugin.yaml" | sed 's/version: *//')
     sed -i "s/^sha: .*/sha: $sha/" "$tmp"
     sed -i "s/^version: .*/version: \"$pv\"/" "$tmp"
   fi
-  old_oid=$(gh api "repos/$FORK/contents/plugin-catalog/dynamic-memory.yaml?ref=$BRANCH" -q '.sha')
-  gh api -X PUT "repos/$FORK/contents/plugin-catalog/dynamic-memory.yaml" \
+  old_oid=$(gh api "repos/$FORK/contents/plugin-catalog/dynmem.yaml?ref=$BRANCH" -q '.sha')
+  gh api -X PUT "repos/$FORK/contents/plugin-catalog/dynmem.yaml" \
     -f message="plugin-catalog: re-pin dynamic-memory to $sha" \
     -f content="$(base64 -w0 "$tmp")" -f sha="$old_oid" -f branch="$BRANCH" >/dev/null \
     && ok "catalog entry updated (sha=$sha)" || bad "catalog entry update FAILED"

@@ -10,7 +10,7 @@ the reply is stored or shown, and keeps only the claims that survive
 verification. It never edits the index itself: it produces evidence, and the
 optimization pass decides.
 
-Shipped in `memory-shaper` 1.6.0. Two plugin hooks, **no core patch**.
+Shipped in `dynmem` 1.6.0. Two plugin hooks, **no core patch**.
 
 | Hook | Where it runs | What it does |
 |---|---|---|

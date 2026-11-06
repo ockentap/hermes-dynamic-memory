@@ -26,7 +26,7 @@ The invariant both directions: every line resolves to a file, every topic file h
 
 | | |
 |---|---|
-| Files | `plugin/memory-shaper/plugin.py` (55 KB, 29 functions, 1.5.1) |
+| Files | `plugin/dynmem/plugin.py` (55 KB, 29 functions, 1.5.1) |
 | Hooks | `pre_tool_call` + `tool_execution` middleware |
 | Owns | refusing prose, overlong content, ASCII arrows, path targets, keyword counts out of band, header/template edits; blocking shell write vectors at the index |
 | Writer | never — it only vetoes |
@@ -42,7 +42,7 @@ Hermes uses. That gap was structural, not careless.
 
 | | |
 |---|---|
-| Files | core `agent/memory_optimization.py`, `memories/.keyword-provenance.json`, `plugin/memory-shaper/` (band checks) |
+| Files | core `agent/memory_optimization.py`, `memories/.keyword-provenance.json`, `plugin/dynmem/` (band checks) |
 | Owns | the positional locked block (first 5), the model band 5–15, the hard 20 cap, provenance of machine-added words, proposals and the swap margin |
 | Writer | `memory` tool only — the optimizer proposes `old_text`/`new_text`, a caller applies |
 | Job | **none running.** `Daily Memory Maintenance` and `memory-integrity-nightly` are both `enabled: false` |
@@ -75,11 +75,11 @@ header removes the fallback path with it.
 
 | | |
 |---|---|
-| Files | `plugin/memory-shaper/memcheck.py` (26 KB), `memcheck_hooks.py` (7 KB), `scripts/memcheck_report.py`, `scripts/gate_oracle.py`, `test_retrieval.py`, `test_hook_cases.py`, `benchmarks/` |
+| Files | `plugin/dynmem/memcheck.py` (26 KB), `memcheck_hooks.py` (7 KB), `scripts/memcheck_report.py`, `scripts/gate_oracle.py`, `test_retrieval.py`, `test_hook_cases.py`, `benchmarks/` |
 | Hooks | `pre_llm_call`, `transform_llm_output` |
 | Owns | observation: which files were opened, which nearly were, whether a routing was contradicted, and the benchmarks that measure any of it |
 | Writer | never against the store; it writes `~/.hermes/state/memcheck/*` |
-| Installed | **no** — repo is 1.6.0, `~/.hermes/plugins/memory-shaper` is 1.5.1 |
+| Installed | **no** — repo is 1.6.0, `~/.hermes/plugins/dynmem` is 1.5.1 |
 
 It duplicates `parse_index` on purpose: the observer must not inherit the guard's bugs.
 

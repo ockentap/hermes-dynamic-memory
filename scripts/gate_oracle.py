@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate: oracle-driven edge-case discovery for the memory-shaper guard.
+"""Gate: oracle-driven edge-case discovery for the dynmem guard.
 
 Runs INSIDE a Hermes >=0.22 container (uses the real tools.memory_tool as the
 write oracle). For each adversarial memory-call shape:
@@ -20,7 +20,7 @@ usage: python3 gate_oracle.py [--verbose]
 import json, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
-REPO_PLUGIN = os.environ.get("GUARD_PLUGIN", "/opt/hermes/plugins/memory-shaper/plugin.py")
+REPO_PLUGIN = os.environ.get("GUARD_PLUGIN", "/opt/hermes/plugins/dynmem/plugin.py")
 SEED_LINES = [
     "java,jvm,heap → java-jvm.md",
     "github,ops,ockentap → github-ops.md",

@@ -1,7 +1,7 @@
-# memory-shaper plugin contract
+# dynmem plugin contract
 
 The hook-layer enforcer for the dynamic-memory architecture. Location:
-`~/.hermes/plugins/memory-shaper/plugin.py`.
+`~/.hermes/plugins/dynmem/plugin.py`.
 
 **Architecture it enforces:** the index file is a flat keyword list
 (`keyword,keyword → file.md`, bare filename targets, same directory). There is
@@ -119,7 +119,7 @@ live refusal test.
 
 **Plugin silently disabled.** Hook errors disable the gate for the session. Check
 `hermes plugins list`; if it shows `not enabled`, run
-`hermes plugins enable memory-shaper`.
+`hermes plugins enable dynmem`.
 
 **Manifest rejected.** `hermes plugins doctor <name>` reports the specific
 problem: unknown hook names in `provides_hooks`, a manifest/registration

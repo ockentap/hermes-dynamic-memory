@@ -51,7 +51,7 @@ The index arrives as a bare list. Without an explicit routing instruction somewh
 
 **Supply the routing rule from one of two places:**
 
-1. **The index header (v1.7.0, recommended).** `memory-shaper` writes one absolute line into `MEMORY.md` on first run:
+1. **The index header (v1.7.0, recommended).** `dynmem` writes one absolute line into `MEMORY.md` on first run:
 
    > `# All memories are located in: /home/<you>/.hermes/memories`
 
@@ -182,7 +182,7 @@ counters into the resident prompt budget. It reorders only untagged lines
 among the slots they already occupy, so the header, `!!`/`!` block, and any
 non-entry lines are frozen anchors.
 
-## Governance — the memory-shaper plugin
+## Governance — the dynmem plugin
 
 Agents drift, and self-editing memory is the most dangerous surface they touch. The plugin enforces the invariants that format validation alone cannot:
 
@@ -191,7 +191,7 @@ Agents drift, and self-editing memory is the most dangerous surface they touch. 
 - **Write-lock without audit lockout.** Read-only operations pass through so the agent can always inspect the index it maintains, while every write vector (redirect, `tee`, `sed -i`, command substitution, `write_file`, `patch`) is blocked when it references the index.
 - **No orphan detection at write time.** The validator finds orphans and dead targets; the hook does not check them on every write. Run the validator.
 
-**Wholesale rewrite** is the one operation the hook cannot perform, and it says so in its own error message: stop and get explicit user scope approval first. With approval, set `MEMORY_SHAPER_ALLOW_REWRITE=1` (or create `~/.hermes/state/.memory_shaper_rewrite_approved`), write atomically from a script, back up first, then verify every line resolves.
+**Wholesale rewrite** is the one operation the hook cannot perform, and it says so in its own error message: stop and get explicit user scope approval first. With approval, set `DYNMEM_ALLOW_REWRITE=1` (or create `~/.hermes/state/.dynmem_rewrite_approved`), write atomically from a script, back up first, then verify every line resolves.
 
 ## Verify the install — do not assume it works
 
@@ -200,8 +200,8 @@ A plugin that is installed but not enabled, or enabled but not loaded, looks ide
 **1. The plugin is discovered and registers cleanly:**
 
 ```bash
-hermes plugins list | grep memory-shaper          # expect: enabled
-hermes plugins doctor memory-shaper               # expect: OK, no warnings
+hermes plugins list | grep dynmem          # expect: enabled
+hermes plugins doctor dynmem               # expect: OK, no warnings
 ```
 
 If `doctor` reports `unknown hook` or `manifest declares hook X but registration did not add it`, the manifest is wrong — fix it before trusting the gate.
@@ -275,5 +275,5 @@ A 60–70 line index (~500–600 keywords) costs roughly 350–500 tokens at ses
 | File | Purpose |
 |---|---|
 | [`references/diagnosing-recall-failure.md`](references/diagnosing-recall-failure.md) | Symptom → cause → fix decision tree for wrong-file, no-file, and blocked-write failures |
-| [`references/memory-shaper-plugin-contract.md`](references/memory-shaper-plugin-contract.md) | Hook signature, routing rules table, constants, testing recipe |
+| [`references/dynmem-plugin-contract.md`](references/dynmem-plugin-contract.md) | Hook signature, routing rules table, constants, testing recipe |
 | [`references/dynamic-memory-format.md`](references/dynamic-memory-format.md) | Quick format reference + violation gallery |

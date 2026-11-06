@@ -45,7 +45,7 @@ One-line claim: *no top-k truncation, no "the fact was in the store but not in t
 
 ## 6. It is guarded
 
-- `memory-shaper` enforces the index format (Unicode arrow, bare filename, 5–20 keywords), rejects
+- `dynmem` enforces the index format (Unicode arrow, bare filename, 5–20 keywords), rejects
   prose, refuses writes to the header, and blocks shell writes to `MEMORY.md`.
 - `verify_index.py`: duplicate targets, orphan files, keyword bounds, and — since 1.7.0 —
   `## Related memories` edges (max 5, condition required, missing target, self link, cycles).

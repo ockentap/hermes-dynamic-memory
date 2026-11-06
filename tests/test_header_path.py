@@ -13,7 +13,7 @@ import pathlib
 
 import pytest
 
-PLUGIN_PATH = pathlib.Path(__file__).resolve().parents[1] / "plugin" / "memory-shaper" / "plugin.py"
+PLUGIN_PATH = pathlib.Path(__file__).resolve().parents[1] / "plugin" / "dynmem" / "plugin.py"
 
 INDEX_BODY = (
     "# Dynamic Memory Index — dynmem\n"
@@ -32,14 +32,14 @@ STOCK_BODY = (
 
 @pytest.fixture
 def shaper(tmp_path, monkeypatch):
-    spec = importlib.util.spec_from_file_location("memory_shaper_path_header_under_test", PLUGIN_PATH)
+    spec = importlib.util.spec_from_file_location("dynmem_path_header_under_test", PLUGIN_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     home = tmp_path / "hermes"
     memdir = home / "memories"
     memdir.mkdir(parents=True)
     monkeypatch.setattr(module, "_hermes_home", lambda: home)
-    monkeypatch.delenv("MEMORY_SHAPER_NO_PATH_HEADER", raising=False)
+    monkeypatch.delenv("DYNMEM_NO_PATH_HEADER", raising=False)
     return module, home, memdir
 
 
@@ -128,7 +128,7 @@ def test_template_placeholder_is_replaced(shaper):
 def test_env_kill_switch(shaper, monkeypatch):
     module, home, memdir = shaper
     _write(memdir, INDEX_BODY)
-    monkeypatch.setenv("MEMORY_SHAPER_NO_PATH_HEADER", "1")
+    monkeypatch.setenv("DYNMEM_NO_PATH_HEADER", "1")
     assert module.ensure_memory_path_header() is False
     assert (memdir / "MEMORY.md").read_text(encoding="utf-8") == INDEX_BODY
 

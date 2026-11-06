@@ -1,6 +1,6 @@
 ---
-name: memory-shaper
-version: 1.7.0
+name: dynmem
+version: 1.8.0
 description: "Enforces the dynamic-memory architecture. Keeps the memory index as a flat keyword table and routes verbose content to ~/.hermes/memories/<topic>.md. Validates index-line format (Unicode arrow only, bare .md targets, 5-20 lowercase keywords), rejects human-language prose via a comma-to-word ratio check, ignores the § separator lines the built-in memory store inserts between entries, refuses any remove/replace/patch whose old_text lands inside the index header — on the stock store the header is a single §-joined entry, so such an edit rewrites the whole preamble — unless the user approves a rewrite, deletes only the template's own placeholder lines and only while they still match the shipped template text, and blocks the recognised write paths of non-memory tools that would touch the index (best-effort against arbitrary shell) — while always allowing reads so the agent can audit the file it maintains. Writes one absolute 'All memories are located in:' line into the header (per-profile path, filled by the plugin, idempotent, backed up once to state/) so index entries stay bare filenames and a recall is one direct read instead of a directory hunt. Optionally appends a hidden tagged self-report to the first four user messages of a session asking which memory files were read, which were nearly read, and whether the routing turned out wrong; the tag is stripped before the reply is stored or shown and every claim (filename, keyword, quoted fact) is checked against the index and the topic file body."
 author: ockentap
 license: Apache-2.0

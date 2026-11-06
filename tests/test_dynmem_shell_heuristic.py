@@ -14,7 +14,7 @@ import pathlib
 
 import pytest
 
-PLUGIN_PATH = pathlib.Path(__file__).resolve().parents[1] / "plugin" / "memory-shaper" / "plugin.py"
+PLUGIN_PATH = pathlib.Path(__file__).resolve().parents[1] / "plugin" / "dynmem" / "plugin.py"
 
 HEADER = (
     "# Dynamic Memory Index\n"
@@ -26,7 +26,7 @@ HEADER = (
 
 @pytest.fixture
 def shaper(tmp_path, monkeypatch):
-    spec = importlib.util.spec_from_file_location("memory_shaper_shell_under_test", PLUGIN_PATH)
+    spec = importlib.util.spec_from_file_location("dynmem_shell_under_test", PLUGIN_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     home = tmp_path / "hermes"
@@ -46,7 +46,7 @@ def test_read_pipes_and_chains_are_not_writes(shaper):
         'grep -c "Memory optimization" /var/log/agent.log',
         'grep -i "Memory optimization" /var/log/agent.log | tail -3',
         'grep -n x /var/log/agent.log; grep -c y /var/log/agent.log',
-        'grep -rn tools.override /home/u/.hermes/plugins/memory-shaper/plugin.yaml | head -5',
+        'grep -rn tools.override /home/u/.hermes/plugins/dynmem/plugin.yaml | head -5',
     ):
         assert _terminal(module, cmd) == {}, cmd
 

@@ -10,7 +10,7 @@ mdA = Path(homeA) / "memories"; mdA.mkdir()
 os.environ["HERMES_HOME"] = homeA
 
 sys.path.insert(0, "/opt/hermes")
-sys.path.insert(0, "/opt/hermes/plugins/memory-shaper")
+sys.path.insert(0, "/opt/hermes/plugins/dynmem")
 from hermes_constants import set_hermes_home_override, get_hermes_home
 import plugin
 

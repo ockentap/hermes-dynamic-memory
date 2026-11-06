@@ -22,7 +22,7 @@ from pathlib import Path
 
 import memcheck
 
-PLUGIN_ID = "memory-shaper"
+PLUGIN_ID = "dynmem"
 _MAX_BODY_BYTES = 200_000
 
 

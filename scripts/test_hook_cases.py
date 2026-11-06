@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Part of hermes-dynamic-memory — https://github.com/ockentap/hermes-dynamic-memory
 # See the NOTICE file for attribution requirements.
-"""Test the memory-shaper hook: read-only passthrough vs. write blocking.
+"""Test the dynmem hook: read-only passthrough vs. write blocking.
 
 Run from the repo root after pointing PLUGIN_DIR at your installed
-memory-shaper copy (default: this repo's plugin/memory-shaper).
+dynmem copy (default: this repo's plugin/dynmem).
 
 Cases cover the 2026-09-16 read-lock regression class: the write-lock must
 block every write vector (redirect, tee, sed -i, command substitution,
@@ -18,7 +18,7 @@ import os
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PLUGIN_DIR = os.path.join(REPO, "plugin", "memory-shaper")
+PLUGIN_DIR = os.path.join(REPO, "plugin", "dynmem")
 sys.path.insert(0, PLUGIN_DIR)
 plugin = importlib.import_module("plugin")
 importlib.reload(plugin)

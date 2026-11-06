@@ -29,7 +29,7 @@ BASE_URL = os.environ.get("BENCH_BASE_URL", "https://opencode.ai/zen/go/v1")
 MODEL = os.environ.get("BENCH_MODEL", "deepseek-v4.1-flash")
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "plugin" / "memory-shaper"))
+sys.path.insert(0, str(REPO / "plugin" / "dynmem"))
 import memcheck  # noqa: E402
 
 INDEX = """# Memory Index — keyword,keyword,keyword → file.md

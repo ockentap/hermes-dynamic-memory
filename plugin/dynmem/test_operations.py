@@ -120,7 +120,7 @@ def test_operations_ascii_arrow():
 if __name__ == "__main__":
     import os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from memory_shaper.plugin import handle_pre_tool_call
+    from dynmem.plugin import handle_pre_tool_call
     print("Running new operations[] tests...")
     import traceback
     passed = 0

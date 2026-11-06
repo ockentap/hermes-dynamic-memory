@@ -18,7 +18,7 @@ import pathlib
 
 import pytest
 
-PLUGIN_PATH = pathlib.Path(__file__).resolve().parents[1] / "plugin" / "memory-shaper" / "plugin.py"
+PLUGIN_PATH = pathlib.Path(__file__).resolve().parents[1] / "plugin" / "dynmem" / "plugin.py"
 
 HEADER = (
     "# Dynamic Memory Index\n"
@@ -30,7 +30,7 @@ HEADER = (
 
 @pytest.fixture
 def shaper(tmp_path, monkeypatch):
-    spec = importlib.util.spec_from_file_location("memory_shaper_under_test", PLUGIN_PATH)
+    spec = importlib.util.spec_from_file_location("dynmem_under_test", PLUGIN_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     home = tmp_path / "hermes"
@@ -76,7 +76,7 @@ def test_header_edit_allowed_with_rewrite_approval(shaper):
     module, home = shaper
     _write(home, HEADER)
     (home / "state").mkdir()
-    (home / "state" / ".memory_shaper_rewrite_approved").touch()
+    (home / "state" / ".dynmem_rewrite_approved").touch()
     result = module.handle_pre_tool_call(
         "memory", {"action": "remove", "old_text": "A keyword routing table"}
     )

@@ -126,7 +126,7 @@ def test_collision_between_two_headers_fails(tmp_path):
     )
     r = _run(memdir, "--keywords")
     assert r.returncode == 1
-    assert "KEYWORD NOT UNIQUE UNDER the index" in r.stdout
+    assert "KEYWORD NOT UNIQUE UNDER tier 2 under index" in r.stdout
 
 
 def test_check_is_opt_in(tmp_path):

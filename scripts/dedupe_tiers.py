@@ -191,6 +191,23 @@ def resolve(entries, body_of, report_limit: int = 15, protect: bool = True,
                 kept_global.add(kw)
     floor_blocked = []
     protected_conflicts: list[tuple[str, str]] = []
+
+    def drop(kw: str, e: dict) -> bool:
+        """Remove one keyword from one line, buying a slot when at the floor."""
+        if len(e["kws"]) > MIN_KEYWORDS:
+            e["kws"].remove(kw)
+            removed[e["target"]].append(kw)
+            return True
+        pool = candidates(body_of[e["target"]], kept_global | set(e["kws"]))
+        if pool:
+            e["kws"].remove(kw)
+            e["kws"].append(pool[0])
+            kept_global.add(pool[0])
+            removed[e["target"]].append(kw)
+            added[e["target"]].append(pool[0])
+            return True
+        return False
+
     for kw, group in collisions.items():
         owner = owners[kw]
         for e in group:
@@ -199,19 +216,28 @@ def resolve(entries, body_of, report_limit: int = 15, protect: bool = True,
             if protect and protected(kw, e, body_of[e["target"]]):
                 protected_conflicts.append((e["target"], kw))
                 continue
-            if len(e["kws"]) > MIN_KEYWORDS:
-                e["kws"].remove(kw)
-                removed[e["target"]].append(kw)
-                continue
-            # At the floor: try to buy a slot from the file itself.
-            pool = [c for c in candidates(body_of[e["target"]], kept_global | set(e["kws"]))]
-            if pool:
-                e["kws"].remove(kw)
-                e["kws"].append(pool[0])
-                kept_global.add(pool[0])
-                removed[e["target"]].append(kw)
-                added[e["target"]].append(pool[0])
-            else:
+            if not drop(kw, e):
+                floor_blocked.append((e["target"], kw))
+
+    # Phase 2 — a word that is core to several lines (all protected). The most
+    # general file owns it: shortest filename, then name. The others drop it,
+    # even though it is core to them, or the rule never resolves.
+    again = collections.defaultdict(list)
+    for e in entries:
+        for kw in e["kws"]:
+            again[kw].append(e["target"])
+    for kw, targets in sorted(again.items()):
+        if len(targets) < 2:
+            continue
+        def _key(e):
+            stem = e["target"][:-3].lower()
+            is_token = kw in re.split(r"[-_.]", stem)
+            return (0 if is_token else 1, -body_of[e["target"]].count(kw),
+                    len(e["target"]), e["target"])
+        holders = sorted((e for e in entries if e["target"] in targets), key=_key)
+        owners[kw] = holders[0]["target"]
+        for e in holders[1:]:
+            if kw in e["kws"] and not drop(kw, e):
                 floor_blocked.append((e["target"], kw))
 
     # Any collision that survived (a floor line with no candidate) is reported.

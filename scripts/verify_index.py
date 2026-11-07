@@ -229,7 +229,13 @@ def check_tree(graph: dict[str, set[str]], roots: set[str], onfile: set[str],
     depth = index_depths(graph, roots)
     for node, ps in sorted(parents.items()):
         if len(ps) > 1:
-            bad.append((node, 0, "DOUBLE-PARENT (" + ", ".join(sorted(ps)) + ")"))
+            if node in hubs:
+                # Two paths into a synapse disagree about its whole subtree.
+                bad.append((node, 0, "DOUBLE-PARENT (" + ", ".join(sorted(ps)) + ")"))
+            else:
+                # A shared engram is fine: several neurons may lead to the same
+                # memory, and the keyword tables stay separate per parent.
+                warn.append((node, "SHARED ENGRAM (" + ", ".join(sorted(ps)) + ")"))
     for node in sorted(roots & set(parents)):
         bad.append((node, 0, "DOUBLE-HOMED (index line + parent edge)"))
     for node, d in sorted(depth.items()):
@@ -290,19 +296,29 @@ def keyword_line(path: str) -> tuple[str, int, list[str]]:
 def check_keyword_tiers(memdir: str, index_kw: dict[str, list[str]],
                         graph: dict[str, set[str]], roots: set[str],
                         onfile: set[str]):
-    """Per-tier keyword-line checks, enabled by `--keywords`.
+    """Per-table keyword-line checks, enabled by `--keywords`.
 
-    Returns (failures, collisions, stats). A collision is the same keyword on
-    two neurons in the same tier; repeats across tiers are legal and expected.
+    A keyword is unique inside one routing table, not across the whole store:
+    the index is one table, and every neuron with links starts another for its
+    children. So two files under different parents may use the same word, and a
+    shared engram is checked against each parent's table separately.
+
+    Returns (failures, collisions, stats).
     """
     bad: list[tuple[str, int, str]] = []
     depth = index_depths(graph, {r for r in roots if r in onfile})
-    tiers: dict[int, dict[str, set[str]]] = {}
+    parents: dict[str, set[str]] = {}
+    for src, targets in graph.items():
+        for t in targets:
+            parents.setdefault(t, set()).add(src)
+    tables: dict[str, dict[str, set[str]]] = {}
+    per_tier: dict[int, set[str]] = {}
     headers = 0
 
     for target, kws in index_kw.items():
+        per_tier.setdefault(1, set()).add(target)
         for kw in kws:
-            tiers.setdefault(1, {}).setdefault(kw, set()).add(target)
+            tables.setdefault("index", {}).setdefault(kw, set()).add(target)
 
     for base in sorted(depth):
         if base not in onfile:
@@ -335,19 +351,20 @@ def check_keyword_tiers(memdir: str, index_kw: dict[str, list[str]],
         if any(" " in k or len(k) > 48 for k in kws):
             bad.append((base, lineno, "KEYWORD CONTAINS SPACE OR TOO LONG"))
             continue
-        for kw in kws:
-            tiers.setdefault(tier, {}).setdefault(kw, set()).add(base)
+        per_tier.setdefault(tier, set()).add(base)
+        for table in (parents.get(base) or {"index"}):
+            for kw in kws:
+                tables.setdefault(table, {}).setdefault(kw, set()).add(base)
 
-    collisions: list[tuple[int, str, set[str]]] = []
-    for tier in sorted(tiers):
-        for kw, files in sorted(tiers[tier].items()):
+    collisions: list[tuple[str, str, set[str]]] = []
+    for table in sorted(tables):
+        for kw, files in sorted(tables[table].items()):
             if len(files) > 1:
-                collisions.append((tier, kw, files))
+                collisions.append((table, kw, files))
     stats = {
-        "tiers": max(tiers, default=1),
+        "tiers": max(per_tier, default=1),
         "headers": headers,
-        "per_tier": {t: len({f for fs in tiers[t].values() for f in fs})
-                     for t in tiers},
+        "per_tier": {t: len(files) for t, files in per_tier.items()},
         "collisions": len(collisions),
     }
     return bad, collisions, stats
@@ -514,9 +531,10 @@ def main() -> int:
         for base, lineno, reason in kw_bad:
             where = f" ({base}:{lineno})" if lineno else f" ({base})"
             print(f"  [FAIL] {reason}{where}")
-        for tier, kw, files in kw_collisions[:25]:
+        for table, kw, files in kw_collisions[:25]:
             shown = ", ".join(sorted(files)[:6]) + (" ..." if len(files) > 6 else "")
-            print(f"  [FAIL] KEYWORD NOT UNIQUE AT TIER {tier}: '{kw}' → "
+            where = "the index" if table == "index" else table
+            print(f"  [FAIL] KEYWORD NOT UNIQUE UNDER {where}: '{kw}' → "
                   f"{len(files)} neurons ({shown})")
         if len(kw_collisions) > 25:
             print(f"  [FAIL] ... and {len(kw_collisions) - 25} more tier collisions")

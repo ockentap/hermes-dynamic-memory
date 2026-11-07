@@ -113,7 +113,7 @@ def test_collision_on_two_index_lines_fails(tmp_path):
     )
     r = _run(memdir, "--keywords")
     assert r.returncode == 1
-    assert "KEYWORD NOT UNIQUE AT TIER 1" in r.stdout
+    assert "KEYWORD NOT UNIQUE UNDER the index" in r.stdout
 
 
 def test_collision_between_two_headers_fails(tmp_path):
@@ -126,7 +126,7 @@ def test_collision_between_two_headers_fails(tmp_path):
     )
     r = _run(memdir, "--keywords")
     assert r.returncode == 1
-    assert "KEYWORD NOT UNIQUE AT TIER 2" in r.stdout
+    assert "KEYWORD NOT UNIQUE UNDER the index" in r.stdout
 
 
 def test_check_is_opt_in(tmp_path):
@@ -135,3 +135,47 @@ def test_check_is_opt_in(tmp_path):
                     ["alpha,one,first,only,single → one.md"])
     r = _run(memdir)
     assert r.returncode == 0, r.stdout
+
+
+def _hub(kw: str, *edges) -> str:
+    body = f"keywords: {kw}\n# Hub\n\n## Related memories\n"
+    return body + "\n".join(f"- when {c} → {t}" for c, t in edges) + "\n"
+
+
+def test_same_keyword_under_different_parents_is_allowed(tmp_path):
+    """Uniqueness is per routing table, not per depth."""
+    memdir = _store(
+        tmp_path,
+        {
+            "a.md": _hub("alpha,one,first,only,single",
+                         ("the user asks about the first thing", "c1.md")),
+            "b.md": _hub("zeta,two,second,pair,double",
+                         ("the user asks about the second thing", "c2.md")),
+            "c1.md": "keywords: shared,beta,gamma,delta,epsilon\n# C1\n",
+            "c2.md": "keywords: shared,eta,theta,iota,kappa\n# C2\n",
+        },
+        ["alpha,one,first,only,single → a.md",
+         "zeta,two,second,pair,double → b.md"],
+    )
+    r = _run(memdir, "--tree", "--keywords")
+    assert r.returncode == 0, r.stdout
+    assert "0 collisions" in r.stdout
+
+
+def test_shared_engram_is_a_warning_not_an_error(tmp_path):
+    """Two neurons may lead to the same engram."""
+    memdir = _store(
+        tmp_path,
+        {
+            "a.md": _hub("alpha,one,first,only,single",
+                         ("the user asks about the first thing", "shared.md")),
+            "b.md": _hub("zeta,two,second,pair,double",
+                         ("the user asks about the second thing", "shared.md")),
+            "shared.md": "keywords: shared,beta,gamma,delta,epsilon\n# Shared\n",
+        },
+        ["alpha,one,first,only,single → a.md",
+         "zeta,two,second,pair,double → b.md"],
+    )
+    r = _run(memdir, "--tree", "--keywords")
+    assert r.returncode == 0, r.stdout
+    assert "SHARED ENGRAM" in r.stdout

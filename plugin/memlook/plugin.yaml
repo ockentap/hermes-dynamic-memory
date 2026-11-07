@@ -1,0 +1,8 @@
+name: memlook
+version: 0.1.0
+description: "Automatic dynmem lookup. On the first user turn a bare evaluator walks index -> neuron -> engram and injects the matching engram text; the memory_lookup tool runs the same walk on demand."
+author: ockentap
+provides_hooks:
+  - pre_llm_call
+provides_tools:
+  - memory_lookup

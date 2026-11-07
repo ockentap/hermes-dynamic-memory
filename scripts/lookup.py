@@ -148,6 +148,10 @@ def main() -> int:
     ap.add_argument("--question", required=True)
     ap.add_argument("--max-files", type=int, default=3)
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--read", action="store_true",
+                    help="print the engram text, which is what the caller feeds back")
+    ap.add_argument("--max-chars", type=int, default=0,
+                    help="cap per file when --read is used (0 = whole file)")
     args = ap.parse_args()
     store = __import__("pathlib").Path(args.store).expanduser()
     engrams, hops, stats = walk(store, args.question, args.max_files)
@@ -159,6 +163,12 @@ def main() -> int:
             print(f"  {name:34s} -> {', '.join(picked) or '(none)'}")
         print(f"read: {', '.join(engrams) or '(none)'}")
         print(f"router: {stats['calls']} calls, {stats['tokens']} tokens")
+        if args.read:
+            for name in engrams:
+                text = (store / name).read_text(encoding="utf-8", errors="replace")
+                if args.max_chars:
+                    text = text[:args.max_chars]
+                print(f"\n===== {name} =====\n{text}")
     return 0 if engrams else 1
 
 

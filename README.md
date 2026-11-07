@@ -284,6 +284,11 @@ python3 scripts/verify_index.py ~/.hermes/memories/MEMORY.md
 
 ## Also in this repo
 
+- **Keyword tiers** — [`docs/keyword-tiers.md`](docs/keyword-tiers.md): every neuron carries its
+  own keyword line, same 5–20 band, the first five locked to the optimizer. Unique within a tier,
+  repeatable across tiers; `verify_index.py --keywords` checks it.
+- **Nomenclature** — [`docs/nomenclature.md`](docs/nomenclature.md): index, neuron, synapse,
+  engram, link — three stations and one edge, with the tier numbering.
 - **Block map** — [`docs/blocks.md`](docs/blocks.md): seven components, who may write `MEMORY.md`,
   dependency arrows, what breaks when each moves.
 - **Claims and limits** — [`docs/readme-positives.md`](docs/readme-positives.md): every benefit here

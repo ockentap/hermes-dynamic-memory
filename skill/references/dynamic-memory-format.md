@@ -8,7 +8,7 @@ keyword,keyword,keyword → file.md
 
 | Part | Rule | Rejected example |
 |---|---|---|
-| keywords | 5–20, lowercase, comma-separated, no spaces inside a keyword | `Memory, Index, Tool` |
+| keywords | 5–20, lowercase, comma-separated, no spaces inside a keyword; the first five are the optimizer's locked block | `Memory, Index, Tool` |
 | arrow | Unicode `→` (U+2192), single space either side | `->` |
 | target | bare `*.md` filename in the same directory | `memories/foo.md`, `~/foo.md`, `/abs/foo.md` |
 | count | exactly one line per topic file | two lines → same file |
@@ -19,6 +19,25 @@ keyword,keyword,keyword → file.md
 Prose is permitted only in the header, and the header/body boundary is the
 template line (`keyword,keyword,keyword → file.md`). Everything above it is
 header; everything below it must be an index line.
+
+## Keyword lines below the index
+
+Every neuron may carry its own keyword line, as its first non-blank line:
+
+```
+keywords: alpha,beta,gamma,delta,epsilon
+# Title
+```
+
+- Same 5–20 band and the same per-keyword rules as an index line.
+- The **first five are the locked block**, owned by the optimizer; the model
+  may add or remove only the keywords after them.
+- Keywords are **unique within a tier** and may **repeat across tiers**:
+  T1 is the index lines, T2 the neurons they point at, T3 their children.
+  A synapse reusing its own index words is legal by design.
+- **Markers are index-only** — `!`, `!!`, `!!!` never belong on a neuron line.
+- Checked by `verify_index.py --keywords`; a store without headers still
+  validates clean unless that flag is passed.
 
 ## Qualifier prefixes
 

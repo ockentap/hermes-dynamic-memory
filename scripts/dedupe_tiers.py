@@ -39,7 +39,7 @@ CANDIDATE_RES = [
     re.compile(r"\b[a-z][a-z0-9]+(?:-[a-z0-9]+)+\b"),      # hyphenated ids
     re.compile(r"\b[a-z][a-z0-9]*(?:\.[a-z0-9]+){2,}\b"),  # dotted names
     re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b"),            # IPs
-    re.compile(r"\b[a-z][a-z0-9]*\.(?:py|sh|js|ts|json|yaml|yml|md|conf|service|timer|log)\b"),
+    re.compile(r"\b[a-z][a-z0-9]*\.(?:py|sh|js|ts|json|yaml|yml|conf|service|timer|log)\b"),
 ]
 
 # A generic word that also names a sub-topic file (cron-dryrun-approval.md) is
@@ -134,12 +134,19 @@ def score(kw: str, entry: dict, body: str) -> int:
     return s
 
 
+FORBIDDEN: set[str] = set()
+
+
 def candidates(body: str, taken: set[str]) -> list[str]:
     found: collections.Counter[str] = collections.Counter()
     for rx in CANDIDATE_RES:
         for m in rx.finditer(body):
             tok = m.group(0).strip()
             if not (4 <= len(tok) <= 48) or tok in taken or tok in GENERIC:
+                continue
+            if tok.endswith(".md") or tok in FORBIDDEN:
+                continue
+            if any(tok == f[:-3] or tok in f for f in FORBIDDEN):
                 continue
             found[tok] += 1
     # Structural tokens first, then by frequency; deterministic on ties.
@@ -281,6 +288,8 @@ def main() -> int:
         print(f"shadow: {store}")
 
     head, entries, body_lines = read_store(store)
+    FORBIDDEN.update(p.name for p in store.glob("*.md"))
+    FORBIDDEN.update(p.stem for p in store.glob("*.md"))
     body_of = bodies(store, entries)
     total_kw = sum(len(e["kws"]) for e in entries)
     res = resolve(entries, body_of, args.report, protect=not args.no_protect,

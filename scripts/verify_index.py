@@ -318,7 +318,7 @@ def check_keyword_tiers(memdir: str, index_kw: dict[str, list[str]],
     for target, kws in index_kw.items():
         per_tier.setdefault(1, set()).add(target)
         for kw in kws:
-            tables.setdefault("index", {}).setdefault(kw, set()).add(target)
+            tables.setdefault("1:index", {}).setdefault(kw, set()).add(target)
 
     for base in sorted(depth):
         if base not in onfile:
@@ -353,8 +353,9 @@ def check_keyword_tiers(memdir: str, index_kw: dict[str, list[str]],
             continue
         per_tier.setdefault(tier, set()).add(base)
         for table in (parents.get(base) or {"index"}):
+            key = f"{tier}:{table}"
             for kw in kws:
-                tables.setdefault(table, {}).setdefault(kw, set()).add(base)
+                tables.setdefault(key, {}).setdefault(kw, set()).add(base)
 
     collisions: list[tuple[str, str, set[str]]] = []
     for table in sorted(tables):
@@ -533,7 +534,8 @@ def main() -> int:
             print(f"  [FAIL] {reason}{where}")
         for table, kw, files in kw_collisions[:25]:
             shown = ", ".join(sorted(files)[:6]) + (" ..." if len(files) > 6 else "")
-            where = "the index" if table == "index" else table
+            where = ("the index" if table == "1:index"
+                     else "tier " + table.replace(":", " under "))
             print(f"  [FAIL] KEYWORD NOT UNIQUE UNDER {where}: '{kw}' → "
                   f"{len(files)} neurons ({shown})")
         if len(kw_collisions) > 25:

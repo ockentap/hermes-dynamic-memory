@@ -187,5 +187,41 @@ def test_shared_engram_is_a_warning_not_an_error(tmp_path):
     r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 0, r.stdout
     assert "SHARED ENGRAM" in r.stdout
-    assert "2 hubs, 3 leaves" in r.stdout
+    assert "2 synapses, 3 engrams" in r.stdout
     assert "0 collisions" in r.stdout
+
+
+def test_five_station_chain_passes(tmp_path):
+    """index -> neuron -> neuron -> neuron -> engram is the deepest legal path."""
+    e = {f"n{i}.md": _hub(f"k{i},a{i},b{i},c{i},d{i}",
+                          (f"the user asks about level {i} of this", f"n{i+1}.md"))
+         for i in range(1, 4)}
+    e["n4.md"] = "keywords: k4,a4,b4,c4,d4\n# Engram\n"
+    memdir = _store(tmp_path, e, ["k0,a0,b0,c0,d0 → n1.md"])
+    r = _run(memdir, "--tree", "--keywords")
+    assert r.returncode == 0, r.stdout
+    assert "tier 5/5" in r.stdout
+
+
+def test_sixth_station_is_too_deep(tmp_path):
+    e = {f"n{i}.md": _hub(f"k{i},a{i},b{i},c{i},d{i}",
+                          (f"the user asks about level {i} of this", f"n{i+1}.md"))
+         for i in range(1, 5)}
+    e["n5.md"] = "keywords: k5,a5,b5,c5,d5\n# Engram\n"
+    memdir = _store(tmp_path, e, ["k0,a0,b0,c0,d0 → n1.md"])
+    r = _run(memdir, "--tree", "--keywords")
+    assert r.returncode == 1
+    assert "TREE TOO DEEP (tier 6 > 5)" in r.stdout
+
+
+def test_tier_five_must_be_an_engram(tmp_path):
+    e = {f"n{i}.md": _hub(f"k{i},a{i},b{i},c{i},d{i}",
+                          (f"the user asks about level {i} of this", f"n{i+1}.md"))
+         for i in range(1, 4)}
+    e["n4.md"] = _hub("k4,a4,b4,c4,d4",
+                      ("the user asks about level 4 of this", "n5.md"))
+    e["n5.md"] = "keywords: k5,a5,b5,c5,d5\n# Engram\n"
+    memdir = _store(tmp_path, e, ["k0,a0,b0,c0,d0 → n1.md"])
+    r = _run(memdir, "--tree", "--keywords")
+    assert r.returncode == 1
+    assert "TIER 5 MUST BE AN ENGRAM" in r.stdout

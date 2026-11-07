@@ -200,7 +200,7 @@ def index_depths(graph: dict[str, set[str]], roots: set[str]) -> dict[str, int]:
 
 
 def check_tree(graph: dict[str, set[str]], roots: set[str], onfile: set[str],
-               max_depth: int = 2):
+               max_depth: int = 5):
     """Strict routing-tree rules, enabled by `--tree`.
 
     Depth is counted from the index line: the indexed file is depth 1, its
@@ -209,8 +209,9 @@ def check_tree(graph: dict[str, set[str]], roots: set[str], onfile: set[str],
     errors because each one makes routing ambiguous or defeats the point of
     the split:
 
-      - TREE TOO DEEP: a node below max_depth (an extra summary line that
-        must carry the child's words, which is where depth 3 lost accuracy);
+      - TREE TOO DEEP: past the fifth station. The chain is index -> neuron ->
+        neuron -> neuron -> engram, so a path may pass through at most three
+        neurons; a fifth-tier node must therefore be an engram, not a synapse.
       - DOUBLE-PARENT: one leaf reachable from two hubs, so two paths can
         disagree;
       - DOUBLE-HOMED: a file that is both indexed and a child, so the first
@@ -238,16 +239,22 @@ def check_tree(graph: dict[str, set[str]], roots: set[str], onfile: set[str],
                 warn.append((node, "SHARED ENGRAM (" + ", ".join(sorted(ps)) + ")"))
     for node in sorted(roots & set(parents)):
         bad.append((node, 0, "DOUBLE-HOMED (index line + parent edge)"))
-    for node, d in sorted(depth.items()):
-        if d > max_depth:
-            bad.append((node, 0, f"TREE TOO DEEP ({d} > {max_depth})"))
+    # The index counts as tier 1, the file it points at as tier 2. A path is
+    # index -> neuron -> neuron -> neuron -> engram: tier 5 is the last station
+    # and must be an engram, so at most three neurons sit between.
+    tiers = {node: d + 1 for node, d in depth.items()}
+    for node, tier in sorted(tiers.items()):
+        if tier > max_depth:
+            bad.append((node, 0, f"TREE TOO DEEP (tier {tier} > {max_depth})"))
+        elif tier == max_depth and node in graph:
+            bad.append((node, 0, f"TIER {max_depth} MUST BE AN ENGRAM (it has children)"))
     for src in sorted(graph):
         if src not in depth and src not in parents:
             bad.append((src, 0, "HUB NOT REACHABLE FROM AN INDEX LINE"))
     stats = {
         "hubs": len([h for h in hubs if h in depth]),
         "leaves": len([l for l in leaves if l in depth]),
-        "max_depth": max(depth.values(), default=0),
+        "max_tier": max(tiers.values(), default=1),
         "max_fanout": max((len(ts) for ts in graph.values()), default=0),
     }
     return bad, warn, stats
@@ -380,9 +387,9 @@ def main() -> int:
     ap.add_argument("--tree", action="store_true",
                     help="enforce routing-tree rules: max depth, one parent, "
                          "one entry point per file")
-    ap.add_argument("--max-depth", type=int, default=2,
-                    help="maximum tree depth counted from the index line "
-                         "(default 2: index -> hub -> leaf)")
+    ap.add_argument("--max-depth", type=int, default=5,
+                    help="maximum tier: 1 = index, 2 = the first neuron, "
+                         "5 = the engram after at most three neurons (default 5)")
     ap.add_argument("--keywords", action="store_true",
                     help="enforce a keyword line in every routed neuron: 5-20 "
                          "keywords, unique within a tier, repeats across tiers ok")
@@ -516,8 +523,8 @@ def main() -> int:
             print(f"  [FAIL] {reason} ({base})")
         for base, reason in tree_warn:
             print(f"  [WARN] {reason} ({base})")
-        print(f"tree: {tree_stats['hubs']} hubs, {tree_stats['leaves']} leaves, "
-              f"depth {tree_stats['max_depth']}/{args.max_depth}, "
+        print(f"tree: {tree_stats['hubs']} synapses, {tree_stats['leaves']} engrams, "
+              f"tier {tree_stats['max_tier']}/{args.max_depth}, "
               f"max fan-out {tree_stats['max_fanout']}")
 
     # Keyword tiers are opt-in (--keywords): a store written before the rule has

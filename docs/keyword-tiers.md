@@ -30,7 +30,12 @@ keywords: cron,daemon,unit,schedule,retry,home/media/jobs.py,systemd,failure
 | T1 | `MEMORY.md` index lines | the agent, from the resident index |
 | T2 | first line of each indexed neuron | the agent after opening the synapse, or `evalmem.py` |
 | T3 | first line of each linked child | the evaluator, one hop down |
-| T4+ | same, one line per neuron | same |
+| T4, T5 | same, one line per neuron | same |
+
+The ceiling is **T5**: `index -> neuron -> neuron -> neuron -> engram`. A path may
+pass through at most three neurons, and whatever sits at T5 must be an engram —
+a T5 neuron with children would need a T6 hop and fails (`TIER 5 MUST BE AN
+ENGRAM`).
 
 T1 is the index line; the file it points at is T2. That is **one more than `--tree` depth**,
 which counts the indexed file as depth 1 — keep the two straight.

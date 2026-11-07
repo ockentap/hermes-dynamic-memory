@@ -22,7 +22,8 @@ role: the edges decide.
 | **T1** | the index lines |
 | **T2** | the neurons the index points at |
 | **T3** | their children |
-| **T4+** | one tier per hop |
+| **T4** | third neuron |
+| **T5** | the engram — the last station |
 
 A tier is one more than the `--tree` depth, which counts the indexed file as depth 1. T1 is
 the index line itself; the file it points at is T2. Keep the two vocabularies straight or the

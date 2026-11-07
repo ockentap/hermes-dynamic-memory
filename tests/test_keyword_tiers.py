@@ -163,15 +163,23 @@ def test_same_keyword_under_different_parents_is_allowed(tmp_path):
 
 
 def test_shared_engram_is_a_warning_not_an_error(tmp_path):
-    """Two neurons may lead to the same engram."""
+    """Two hubs, distinct children each, and one engram both point at.
+
+    The shape Lav described: hermes.md -> hermes-vps / hermes-optiplex /
+    hermes-pi, and optiplex.md -> hermes-optiplex / optiplex-streaming.
+    """
     memdir = _store(
         tmp_path,
         {
             "a.md": _hub("alpha,one,first,only,single",
-                         ("the user asks about the first thing", "shared.md")),
+                         ("the user asks about the first thing", "shared.md"),
+                         ("the user asks about a thing only A has", "a-only.md")),
             "b.md": _hub("zeta,two,second,pair,double",
-                         ("the user asks about the second thing", "shared.md")),
+                         ("the user asks about the second thing", "shared.md"),
+                         ("the user asks about a thing only B has", "b-only.md")),
             "shared.md": "keywords: shared,beta,gamma,delta,epsilon\n# Shared\n",
+            "a-only.md": "keywords: aonly,alpha1,alpha2,alpha3,alpha4\n# A only\n",
+            "b-only.md": "keywords: bonly,beta1,beta2,beta3,beta4\n# B only\n",
         },
         ["alpha,one,first,only,single → a.md",
          "zeta,two,second,pair,double → b.md"],
@@ -179,3 +187,5 @@ def test_shared_engram_is_a_warning_not_an_error(tmp_path):
     r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 0, r.stdout
     assert "SHARED ENGRAM" in r.stdout
+    assert "2 hubs, 3 leaves" in r.stdout
+    assert "0 collisions" in r.stdout

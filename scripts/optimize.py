@@ -158,6 +158,28 @@ def compact_index(store: pathlib.Path, limit: int = 8) -> str:
     return "\n".join(lines)
 
 
+def extract_plans(text: str) -> list[dict]:
+    """Tolerant JSON extraction: fences, surrounding prose, a bare plan object."""
+    t = (text or "").strip()
+    t = re.sub(r"^```[a-zA-Z]*\s*|```$", "", t, flags=re.MULTILINE).strip()
+    candidates = [t]
+    if "{" in t and "}" in t:
+        candidates.append(t[t.find("{"):t.rfind("}") + 1])
+    for cand in candidates:
+        try:
+            data = json.loads(cand)
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            if isinstance(data.get("plans"), list):
+                return [p for p in data["plans"] if isinstance(p, dict)]
+            if data.get("mode"):
+                return [data]
+        if isinstance(data, list):
+            return [p for p in data if isinstance(p, dict)]
+    return []
+
+
 def plan_once(store: pathlib.Path, body: str, context_block: str, heading: str,
               dry_run: bool) -> tuple[list[str], list[tuple], int]:
     """One message -> plans -> memwrite. Returns (written, failed, tokens)."""
@@ -166,17 +188,33 @@ def plan_once(store: pathlib.Path, body: str, context_block: str, heading: str,
     for attempt in (1, 2):
         text, tok = lookup.call(SYSTEM, user + ("" if attempt == 1 else
                                                 "\n\nReturn ONLY the JSON object. No prose, no markdown fences, no trailing text."),
-                                max_tokens=8000)
+                                max_tokens=12000)
         tokens += tok
-        try:
-            start, end = text.find("{"), text.rfind("}")
-            plans = json.loads(text[start:end + 1]).get("plans", [])
-            if plans:
-                break
-        except Exception:
-            plans = []
+        plans = extract_plans(text)
+        if plans:
+            break
+        if attempt == 2:
+            print("optimize: unparseable model output, head follows:", file=sys.stderr)
+            print((text or "")[:300], file=sys.stderr)
     if not plans:
-        return [], [("parse", "no usable plan after 2 attempts")], tokens
+        # last resort: keep the facts rather than lose them to a malformed reply
+        slug = "notes-" + __import__("hashlib").sha1(body.encode()).hexdigest()[:6]
+        words = [w for w in re.findall(r"[a-z][a-z0-9_.\-]{2,}", body.lower())
+                 if w not in {"the", "and", "for", "with", "from", "that", "this"}]
+        kws, seen = [], set()
+        for w in words:
+            if w not in seen:
+                kws.append(w); seen.add(w)
+            if len(kws) >= 6:
+                break
+        plans = [{"mode": "new",
+                  "neuron": {"name": slug + ".md",
+                             "lines": [" ".join(kws) + " → " + slug + "-notes.md"]},
+                  "engrams": [{"name": slug + "-notes.md",
+                               "content": f"# Notes — {body[3:60].strip()}\nPart of: {slug}.md.\n\n"
+                                          + body[:5000]}],
+                  "index_line": " ".join(kws) + " → " + slug + ".md"}]
+        print("optimize: fell back to a raw-notes engram", file=sys.stderr)
 
     written, failed = [], []
     for plan in plans:

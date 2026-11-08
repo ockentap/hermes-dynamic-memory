@@ -19,6 +19,7 @@ import argparse
 import json
 import math
 import os
+import pathlib
 import re
 import sys
 import urllib.error
@@ -58,10 +59,16 @@ def load_key() -> str:
     raise SystemExit("no API key: set OPENCODE_GO_API_KEY")
 
 
-def call(system: str, user: str, max_tokens: int = 1200) -> tuple[str, int]:
+CALLS = 0
+
+
+def call(system: str, user: str, max_tokens: int = 1200,
+         reasoning: str | None = "none") -> tuple[str, int]:
+    global CALLS
+    CALLS += 1
     key = load_key()
     body = {"model": MODEL, "temperature": 0, "max_tokens": max_tokens,
-            "reasoning_effort": "none",
+            **({"reasoning_effort": reasoning} if reasoning else {}),
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": user}]}
     req = urllib.request.Request(
@@ -204,6 +211,76 @@ def card_with_titles(store, name: str) -> str:
                     break
         out.append(line.strip() + (("  — " + title) if title else ""))
     return "\n".join(out)
+
+
+_DOCS: dict[str, dict] = {}
+_STOP = {"the", "and", "for", "with", "from", "that", "this", "into", "when", "what",
+         "which", "how", "are", "was", "were", "has", "have", "its", "not", "but",
+         "all", "any", "can", "does", "did", "is", "it", "of", "to", "in", "on", "at",
+         "be", "by", "or", "as", "an", "a"}
+
+
+def _docs(store) -> dict:
+    """Token counts per engram, cached per store (routers excluded)."""
+    key = str(pathlib.Path(store).resolve())
+    if key in _DOCS:
+        return _DOCS[key]
+    docs = {}
+    for p in pathlib.Path(store).glob("*.md"):
+        if p.name in {"MEMORY.md", "USER.md"}:
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        body = [l.strip() for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
+        if body and sum(1 for l in body if ROUTE.match(l)) / len(body) >= 0.5:
+            continue
+        toks = {}
+        for t in re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", text.lower()):
+            toks[t] = toks.get(t, 0) + 1
+        docs[p.name] = toks
+    _DOCS[key] = docs
+    return docs
+
+
+def body_search(store, question: str, limit: int = 3) -> list[str]:
+    """Lexical search over engram bodies: no model call, no index.
+
+    Routing answers "which topic"; this answers "which file contains these
+    words". For short factual questions the second is usually the right tool.
+    """
+    docs = _docs(store)
+    if not docs:
+        return []
+    df: dict[str, int] = {}
+    for toks in docs.values():
+        for t in toks:
+            df[t] = df.get(t, 0) + 1
+    n = len(docs)
+    q = set(re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", question.lower()))
+    q = {t for t in q if t not in _STOP and df.get(t, n) <= max(2, n * 0.15)}
+    scored = []
+    for name, toks in docs.items():
+        # presence of a rare word beats repetition of a common one
+        score = sum(math.log(1 + n / df[t]) for t in q if t in toks)
+        if score:
+            scored.append((score, name))
+    scored.sort(key=lambda x: -x[0])
+    return [name for _, name in scored[:limit]]
+
+
+def retrieve(store, question: str, max_files: int = 3):
+    """Search first, route second.
+
+    A short factual question ("which model is the sink?") names a thing, not a
+    topic; the engram that contains that word is the right answer and lexical
+    search finds it without a model call. The tree is the fallback for topical
+    questions, where no single word decides.
+    """
+    names = body_search(store, question, limit=min(2, max_files))
+    if names:
+        return names, 0, 0
+    start = smart_start(store, question)
+    names, hops, stats = walk(store, question, max_files, start)
+    return names, stats["calls"], stats["tokens"]
 
 
 def score_routes(store, name: str, question: str) -> list[tuple[int, str]]:

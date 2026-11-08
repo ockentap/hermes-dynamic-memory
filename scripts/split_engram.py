@@ -81,13 +81,15 @@ def main() -> int:
     ap.add_argument("--store", required=True)
     ap.add_argument("--file", required=True, help="engram to split")
     ap.add_argument("--neuron", required=True, help="router that links it")
+    ap.add_argument("--promote", action="store_true",
+                    help="the neuron does not exist yet: create it with the new routes")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     store = pathlib.Path(args.store).expanduser()
     target = args.file
     text = (store / target).read_text(encoding="utf-8", errors="replace")
     neuron_path = store / args.neuron
-    neuron = neuron_path.read_text(encoding="utf-8")
+    neuron = neuron_path.read_text(encoding="utf-8") if neuron_path.exists() else ""
 
     title, preamble, sections = parse(text)
     if len(sections) < 2:
@@ -115,7 +117,8 @@ def main() -> int:
     backup = store / f"engram-split-{time.strftime('%Y%m%d-%H%M%S')}-{target[:-3]}"
     backup.mkdir()
     shutil.copy2(store / target, backup / target)
-    shutil.copy2(neuron_path, backup / args.neuron)
+    if neuron_path.exists():
+        shutil.copy2(neuron_path, backup / args.neuron)
 
     body_intro = "\n".join(preamble).strip()
     for name, head, g in plan:
@@ -133,6 +136,11 @@ def main() -> int:
                 lines.append(f"{' '.join(kws)} {ARROW} {name}")
             continue
         lines.append(line)
+    if not neuron.strip():
+        for name, head, g in plan:
+            kws = keywords_for(head, stem, used)
+            used.update(kws)
+            lines.append(f"{' '.join(kws)} {ARROW} {name}")
     neuron_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     (store / target).unlink()
     print(f"split {target} -> {len(plan)} engrams; backup {backup}")

@@ -224,6 +224,8 @@ def main() -> int:
     ap.add_argument("--store", required=True)
     ap.add_argument("--plan", required=True, help="JSON file, or - for stdin")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--quiet", action="store_true",
+                    help="one line: files, validator verdict, backup")
     ap.add_argument("--allow-rewrite", action="store_true",
                     help="required: this script rewrites MEMORY.md")
     args = ap.parse_args()
@@ -240,14 +242,20 @@ def main() -> int:
         touched = apply_plan(shadow, plan)
         stats = normalise(shadow)
         code, summary = validate(shadow)
-        print(f"plan: {plan.get('mode')}  files: {', '.join(touched)}")
-        print(f"normalise: {stats['tables']} table(s), -{stats['dropped']} dup/junk, +{stats['topped']} topped up")
-        print(summary)
+        if not args.quiet:
+            print(f"plan: {plan.get('mode')}  files: {', '.join(touched)}")
+            print(f"normalise: {stats['tables']} table(s), -{stats['dropped']} dup/junk, +{stats['topped']} topped up")
+            print(summary)
         if code != 0:
             print("memwrite: shadow validation failed — nothing written", file=sys.stderr)
             return code
         if args.dry_run:
-            print("dry run: live store untouched")
+            if args.quiet:
+                verdict = next((l for l in summary.splitlines() if "lines OK" in l), "")
+                coll = next((l for l in summary.splitlines() if l.startswith("keywords:")), "")
+                print(f"dry: {len(touched)} files; {verdict.strip()}; {coll.strip()}")
+            else:
+                print("dry run: live store untouched")
             return 0
         backup = store / f"memwrite-{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"
         backup.mkdir(parents=True)
@@ -261,7 +269,12 @@ def main() -> int:
         with log.open("a", encoding="utf-8") as f:
             f.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {plan.get('mode')} "
                     f"{','.join(touched)} backup={backup.name}\n")
-        print(f"written: {', '.join(touched)}  backup: {backup.name}")
+        if args.quiet:
+            verdict = next((l for l in summary.splitlines() if "lines OK" in l), "")
+            coll = next((l for l in summary.splitlines() if l.startswith("keywords:")), "")
+            print(f"written: {len(touched)} files; {verdict.strip()}; {coll.strip()}; backup {backup.name}")
+        else:
+            print(f"written: {', '.join(touched)}  backup: {backup.name}")
     return 0
 
 

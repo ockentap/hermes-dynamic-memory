@@ -106,6 +106,32 @@ def index_text(store) -> tuple[str, dict[str, list[str]]]:
     return "\n".join(lines), table
 
 
+def lexical_pick(store, question: str, limit: int = 2) -> list[str]:
+    """T1 without a model call: score index lines by keyword overlap.
+
+    The main agent already has the index in its prompt; when the script has to
+    start on its own, this is the free approximation of that pick.
+    """
+    words = set(re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", question.lower()))
+    scored = []
+    for line in (store / "MEMORY.md").read_text(encoding="utf-8", errors="replace").splitlines():
+        if "\u2192" not in line or line.lstrip().startswith("#"):
+            continue
+        kw, target = line.rsplit("\u2192", 1)
+        target = target.strip()
+        if not target.endswith(".md"):
+            continue
+        kws = [k.strip().lstrip("!") for k in re.split(r"[,\s]+", kw) if k.strip()]
+        score = sum(1 for k in kws if k in words or (len(k) > 3 and k in question.lower()))
+        if score:
+            scored.append((score, target))
+    scored.sort(key=lambda x: -x[0])
+    if not scored:
+        return []
+    top = scored[0][0]
+    return [t for score, t in scored if score == top][:limit]
+
+
 ROUTE = re.compile(r"^(?P<kw>.+?)\s*(?:\u2192|->)\s*(?P<t>[A-Za-z0-9_.\-]+\.md)\s*$", re.M)
 
 
@@ -120,8 +146,10 @@ def children(store, name: str) -> list[str]:
     return [m.group("t") for m in ROUTE.finditer(text)] + [m.group("target") for m in EDGE.finditer(text)]
 
 
-def walk(store, question: str, max_files: int):
-    index, _ = index_text(store)
+def walk(store, question: str, max_files: int, start: list[str] | None = None):
+    """Walk the tree. With `start`, the T1 selection is skipped: the caller (the
+    main agent, which already has MEMORY.md in its system prompt) named the
+    neuron(s), and the bare evaluator only handles T2 downward."""
     stats = {"calls": 0, "tokens": 0}
     hops = []
 
@@ -131,8 +159,13 @@ def walk(store, question: str, max_files: int):
         stats["tokens"] += tok
         return parse_files(text)[:max_files]
 
-    picked = ask(INDEX_SYSTEM, f"INDEX:\n{index}\n\nQUESTION: {question}")
-    hops.append(("index", picked))
+    if start:
+        picked = [f for f in start if (store / f).exists()][:max_files]
+        hops.append(("main agent → " + ", ".join(picked), picked))
+    else:
+        index, _ = index_text(store)
+        picked = ask(INDEX_SYSTEM, f"INDEX:\n{index}\n\nQUESTION: {question}")
+        hops.append(("index", picked))
     frontier, visited, engrams = [(f, 2) for f in picked], set(picked), []
     while frontier:
         name, tier = frontier.pop(0)
@@ -196,6 +229,11 @@ def main() -> int:
     ap.add_argument("--sheet", action="store_true",
                     help="one call: index + every routing card in one prompt (lowest request count)")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--model-index", action="store_true",
+                    help="use a model call for T1 instead of the free lexical pick")
+    ap.add_argument("--start", nargs="+", metavar="FILE",
+                    help="neuron(s) the main agent already picked from the index; "
+                         "skips the T1 router call")
     ap.add_argument("--read", action="store_true",
                     help="print the engram text, which is what the caller feeds back")
     ap.add_argument("--max-chars", type=int, default=0,
@@ -205,7 +243,8 @@ def main() -> int:
     if args.sheet:
         engrams, hops, stats = walk_sheet(store, args.question, args.max_files)
     else:
-        engrams, hops, stats = walk(store, args.question, args.max_files)
+        start = args.start or (None if args.model_index else lexical_pick(store, args.question) or None)
+    engrams, hops, stats = walk(store, args.question, args.max_files, start)
     if args.json:
         print(json.dumps({"question": args.question, "files": engrams, "hops": hops,
                           "calls": stats["calls"], "router_tokens": stats["tokens"]}, indent=1))

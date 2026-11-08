@@ -113,8 +113,8 @@ def index_text(store: Path) -> str:
         kw, target = line.rsplit("\u2192", 1)
         if not target.strip().endswith(".md"):
             continue
-        kws = " ".join(k.strip().lstrip("!") for k in kw.split(",") if k.strip())
-        lines.append(target.strip() + ": " + kws)
+        kws = " ".join(k.strip().lstrip("!") for k in re.split(r"[,\s]+", kw.strip()) if k.strip())
+        lines.append(kws + " \u2192 " + target.strip())
     return "\n".join(lines)
 
 
@@ -132,7 +132,34 @@ def children(store: Path, name: str) -> list[str]:
     return [m.group("t") for m in ROUTE.finditer(text)] + [m.group("target") for m in EDGE.finditer(text)]
 
 
-def walk(question: str) -> dict:
+def lexical_pick(store: Path, question: str, limit: int = 2) -> list[str]:
+    """T1 for free: score index lines by keyword overlap, no model call.
+
+    The main agent already carries MEMORY.md in its system prompt, so paying a
+    router call to re-read the index is waste. This is the local approximation;
+    the agent can override it by naming a file explicitly.
+    """
+    words = set(re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", question.lower()))
+    scored = []
+    for line in (store / "MEMORY.md").read_text(encoding="utf-8", errors="replace").splitlines():
+        if "\u2192" not in line or line.lstrip().startswith("#"):
+            continue
+        kw, target = line.rsplit("\u2192", 1)
+        target = target.strip()
+        if not target.endswith(".md"):
+            continue
+        kws = [k.strip().lstrip("!") for k in re.split(r"[,\s]+", kw) if k.strip()]
+        score = sum(1 for k in kws if k in words or (len(k) > 3 and k in question.lower()))
+        if score:
+            scored.append((score, target))
+    scored.sort(key=lambda x: -x[0])
+    if not scored:
+        return []
+    top = scored[0][0]
+    return [t for score, t in scored if score == top][:limit]
+
+
+def walk(question: str, start: list[str] | None = None) -> dict:
     store = _store()
     stats = {"calls": 0, "tokens": 0}
     hops = []
@@ -142,8 +169,8 @@ def walk(question: str) -> dict:
         stats["calls"] += 1
         return _files(text)[:MAX_FILES]
 
-    picked = ask(INDEX_SYSTEM, f"INDEX:\n{index_text(store)}\n\nQUESTION: {question}")
-    hops.append(("index", picked))
+    picked = start or lexical_pick(store, question)
+    hops.append(("main agent", picked))
     queue = [(f, 2) for f in picked]
     seen, engrams = set(picked), []
     while queue:
@@ -235,10 +262,11 @@ SCHEMA = {
 }
 
 
-def _tool(question: str = "", **_kw) -> str:
+def _tool(question: str = "", start: str = "", **_kw) -> str:
     if not (question or "").strip():
         return json.dumps({"error": "question is required"})
-    res = walk(question)
+    start_list = [s.strip() for s in re.split(r"[,\s]+", start) if s.strip()] or None
+    res = walk(question, start_list)
     return json.dumps({"files": res["files"], "hops": res["hops"], "calls": res["calls"],
                        "context": context_for(res["files"])})
 

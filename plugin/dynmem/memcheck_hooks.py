@@ -20,7 +20,10 @@ import os
 import time
 from pathlib import Path
 
-import memcheck
+try:  # loaded as a package (hermes_plugins.<slug>.memcheck_hooks)
+    from . import memcheck
+except ImportError:  # path-based loader / pytest (see __init__.py)
+    import memcheck  # type: ignore[no-redef]
 
 PLUGIN_ID = "dynmem"
 _MAX_BODY_BYTES = 200_000
@@ -34,8 +37,29 @@ def _hermes_home() -> Path:
         return Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
 
 
+# Opt-in, default OFF. `register()` calls configure() with the plugin's own
+# setting (`plugins.entries.dynmem.settings.memcheck.enabled`); every enabled
+# session pays output tokens for the self-report, so nobody gets it by accident.
+# MEMCHECK_DISABLED stays as a one-process kill switch, not an enable switch.
+_enabled_flag = False
+
+
+def configure(enabled: bool | None = None) -> None:
+    """Set the opt-in switch (called once from ``plugin.register()``)."""
+    global _enabled_flag
+    if enabled is not None:
+        _enabled_flag = bool(enabled)
+
+
+def enabled() -> bool:
+    """Effective switch: config opt-in AND not killed by the environment."""
+    return _enabled()
+
+
 def _enabled() -> bool:
-    return os.environ.get("MEMCHECK_DISABLED", "").strip() not in {"1", "true", "yes"}
+    if os.environ.get("MEMCHECK_DISABLED", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    return _enabled_flag
 
 
 def _load_index(home: Path) -> tuple[dict[str, list[str]], list[str]]:

@@ -254,9 +254,11 @@ A self-editing memory is both the feature and the failure mode.
 | Orphan rot | Validator flags unreachable files, dead pointers, broken Related edges and cycles |
 | Stale installations | `__init__.py` delegates to `plugin.register`, so a hook cannot be silently unregistered |
 
-`memcheck` (1.6.0) closes the last gap: routing decisions leave no trace, so it asks the model for a
+`memcheck` (1.6.0, opt-in since 1.12.0) closes the last gap: routing decisions leave no trace, so it asks the model for a
 tagged self-report on the first four turns, validates every claim against the index and the topic
-file, and discards what does not check out. `python3 scripts/memcheck_report.py`.
+file, and discards what does not check out. Off by default — enable with
+`plugins.entries.dynmem.settings.memcheck.enabled: true` — because it changes replies and costs
+output tokens on every session it touches. `python3 scripts/memcheck_report.py`.
 
 ---
 

@@ -79,6 +79,10 @@ STATE_DIRNAME = "state"
 STATE_SUBDIR = "memcheck"
 STATE_FILE = "state.json"
 SAMPLES_FILE = "samples.jsonl"
+# Rotation ceiling for samples.jsonl. One previous generation (`samples.jsonl.1`)
+# is kept, so a months-long install cannot grow the file without bound while the
+# report can still read the window before the last rotation.
+SAMPLES_MAX_BYTES = int(os.environ.get("MEMCHECK_SAMPLES_MAX_BYTES") or 5 * 1024 * 1024)
 
 # --------------------------------------------------------------------------
 # Parsing
@@ -540,10 +544,26 @@ def remember_message(sess: dict, message: str, keep: int = 4) -> None:
     sess["msgs"] = msgs[-keep:]
 
 
+def _rotate_samples(path: Path) -> None:
+    """Move a full samples.jsonl aside before appending (one generation kept).
+
+    Unbounded append was flagged in review: every record carries the first 400
+    characters of a user message, so a long-lived install grows a file nobody
+    prunes. Rotation is silent and best-effort — a failed rotate must not cost a
+    reply, and the report reads `samples.jsonl` only.
+    """
+    try:
+        if path.exists() and path.stat().st_size >= SAMPLES_MAX_BYTES:
+            os.replace(path, path.with_name(path.name + ".1"))
+    except OSError:
+        pass
+
+
 def append_sample(home: Path, record: dict) -> None:
     p = samples_path(home)
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
+        _rotate_samples(p)
         with p.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
     except Exception:

@@ -1356,20 +1356,44 @@ def _register_memcheck(ctx):
         tag never reaches SQLite.
       * ``transform_llm_output`` strips it before the assistant row is first
         persisted (agent/turn_finalizer.py, #44239), so what the user sees is
-        what the next turn replays.
+        what the next turn replays. Registered with ``hold_stream=True`` when the
+        feature is on — otherwise the tag streams to the user ahead of the
+        rewrite — and without it on Hermes builds that predate the kwarg.
+
+    Opt-in: OFF unless ``plugins.entries.dynmem.settings.memcheck.enabled`` is
+    true. On-by-default changed every reply and spent output tokens collecting
+    research samples, which is not a default a memory plugin gets to choose.
 
     Registration is fail-open: a missing or broken memcheck module must leave
     the format guard — the reason this plugin exists — fully working.
     """
     try:
-        import sys as _sys
-        _here = str(Path(__file__).resolve().parent)
-        if _here not in _sys.path:
-            _sys.path.insert(0, _here)
-        import memcheck_hooks
+        try:
+            from . import memcheck_hooks  # loaded as hermes_plugins.<slug>.*
+        except ImportError:
+            import sys as _sys
+            _here = str(Path(__file__).resolve().parent)
+            if _here not in _sys.path:
+                _sys.path.insert(0, _here)
+            import memcheck_hooks  # type: ignore[no-redef]
+
+        get_config = getattr(ctx, "get_config", None)
+        enabled = bool(get_config("memcheck.enabled", False)) if callable(get_config) else False
+        memcheck_hooks.configure(enabled)
+
         ctx.register_hook("pre_llm_call", memcheck_hooks.pre_llm_call)
-        ctx.register_hook("transform_llm_output", memcheck_hooks.transform_llm_output)
-        _logger.info("[dynmem] memcheck hooks registered")
+        # hold_stream only when on: holding every reply's stream for a disabled
+        # monitor would cost streaming for nothing.
+        if enabled:
+            try:
+                ctx.register_hook("transform_llm_output", memcheck_hooks.transform_llm_output,
+                                  hold_stream=True)
+            except TypeError:  # Hermes build predates the kwarg
+                ctx.register_hook("transform_llm_output", memcheck_hooks.transform_llm_output)
+        else:
+            ctx.register_hook("transform_llm_output", memcheck_hooks.transform_llm_output)
+        _logger.info("[dynmem] memcheck hooks registered (enabled=%s, hold_stream=%s)",
+                     enabled, enabled)
     except Exception as exc:  # pragma: no cover - environment dependent
         _logger.warning("[dynmem] memcheck hooks NOT registered: %s", exc)
 

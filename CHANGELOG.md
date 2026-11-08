@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.12.0 — 2026-11-09
+
+Review fixes for the catalog PR (`NousResearch/hermes-agent#149712`, review by
+@teknium1 on 2026-11-08):
+
+- **memcheck is opt-in.** Default OFF; enable it with
+  `plugins.entries.dynmem.settings.memcheck.enabled: true` (own config, not an
+  env var). `MEMCHECK_DISABLED` stays as a one-process kill switch.
+- **`hold_stream=True`** when the transform hook is registered, so the `<mc …>`
+  tag cannot stream to the user ahead of the rewrite; falls back to the plain
+  registration on Hermes builds without the kwarg.
+- **Bounded samples.** `samples.jsonl` rotates at 5 MiB (`samples.jsonl.1` keeps
+  one previous window) and the docs say exactly what a record stores, including
+  the first 400 characters of the user message.
+- Plugin modules import package-relatively (`from . import memcheck_hooks`) with
+  a path-based fallback, instead of putting the plugin dir on `sys.path`.
+- `scripts/test_hook_cases.py` no longer fails on its own fixtures: the index
+  path follows `$HERMES_HOME` and the fixture lines use the space-separated
+  keyword format (commas have been rejected since 1.11.0). 0 failures.
+
 ## 1.11.0 — 2026-11-08
 
 - Routers: every neuron is a table of route lines, `keyword keyword → child.md`;

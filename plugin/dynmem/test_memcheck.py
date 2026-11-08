@@ -21,6 +21,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import memcheck
 import memcheck_hooks
 
+# memcheck became opt-in at the 2026-11 review; the hook-wiring tests below all
+# exercise the ENABLED path. The off path has its own tests.
+memcheck_hooks.configure(True)
+
 
 INDEX = """# index header
 
@@ -326,3 +330,110 @@ def test_transform_is_still_stripped_when_validation_is_angry(tmp_path, monkeypa
     rec = json.loads(memcheck.samples_path(home).read_text(encoding="utf-8").splitlines()[-1])
     assert "bad_verdict" in rec["problems"]
     assert "unknown_file:ghost.md" in rec["problems"]
+
+
+# ------------------------------------------------- opt-in / rotation (review)
+
+def test_memcheck_is_off_until_configured(tmp_path, monkeypatch):
+    """Default OFF: a fresh install must not spend output tokens on samples."""
+    home = _store(tmp_path)
+    monkeypatch.setattr(memcheck_hooks, "_hermes_home", lambda: home)
+    monkeypatch.delenv("MEMCHECK_DISABLED", raising=False)
+    memcheck_hooks.configure(False)
+    try:
+        assert memcheck_hooks.enabled() is False
+        assert memcheck_hooks.pre_llm_call(
+            session_id="off1", user_message="restart the gateway after a reboot",
+            conversation_history=[], is_first_turn=True, platform="telegram") is None
+        assert memcheck_hooks.transform_llm_output(
+            response_text='Answer. <mc t="1" opened="gateway-restart.md">',
+            session_id="off1", platform="telegram") is None
+        assert not memcheck.samples_path(home).exists()
+    finally:
+        memcheck_hooks.configure(True)
+
+
+def test_disabled_env_kills_an_enabled_monitor(monkeypatch):
+    memcheck_hooks.configure(True)
+    monkeypatch.setenv("MEMCHECK_DISABLED", "YES")
+    try:
+        assert memcheck_hooks.enabled() is False
+    finally:
+        monkeypatch.delenv("MEMCHECK_DISABLED", raising=False)
+        memcheck_hooks.configure(True)
+
+
+def test_samples_rotate_to_one_generation(tmp_path, monkeypatch):
+    """Unbounded samples.jsonl was a review blocker: rotate by size, keep one copy."""
+    home = _store(tmp_path)
+    monkeypatch.setattr(memcheck, "SAMPLES_MAX_BYTES", 200)
+    for i in range(3):
+        memcheck.append_sample(home, {"i": i, "pad": "x" * 120})
+    p = memcheck.samples_path(home)
+    rotated = p.with_name(p.name + ".1")
+    assert p.exists() and rotated.exists()
+    assert len(p.read_text(encoding="utf-8").splitlines()) <= 1
+    assert len(rotated.read_text(encoding="utf-8").splitlines()) >= 1
+
+
+class _Ctx:
+    """Records what register() asks the host for; get_config returns a setting."""
+
+    def __init__(self, settings=None):
+        self.settings = settings or {}
+        self.hooks = []
+        self.middleware = []
+
+    def register_hook(self, name, callback, *, hold_stream=False):
+        self.hooks.append((name, callback.__name__, hold_stream))
+
+    def register_middleware(self, kind, callback):
+        self.middleware.append((kind, callback.__name__))
+
+    def get_config(self, key, default=None):
+        return self.settings.get(key, default)
+
+
+def _plugin_module():
+    import importlib.util
+    path = Path(__file__).resolve().parent / "plugin.py"
+    spec = importlib.util.spec_from_file_location("dynmem_plugin_under_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_register_holds_stream_only_when_enabled(monkeypatch):
+    """The tag must not stream to the user; a disabled monitor must not hold it."""
+    plugin = _plugin_module()
+
+    off = _Ctx({})
+    plugin._register_memcheck(off)
+    assert ("pre_llm_call", "pre_llm_call", False) in off.hooks
+    transform = [h for h in off.hooks if h[0] == "transform_llm_output"]
+    assert transform and transform[0][2] is False  # no hold when off
+    assert memcheck_hooks.enabled() is False
+    assert ("tool_execution", "handle_tool_execution_middleware") not in off.middleware
+
+    on = _Ctx({"memcheck.enabled": True})
+    plugin._register_memcheck(on)
+    transform = [h for h in on.hooks if h[0] == "transform_llm_output"]
+    assert transform and transform[0][2] is True  # hold_stream when on
+    assert memcheck_hooks.enabled() is True
+    memcheck_hooks.configure(True)
+
+
+def test_register_falls_back_when_hold_stream_is_unsupported(monkeypatch):
+    """Hermes builds before the kwarg: retry without it instead of losing the hook."""
+    plugin = _plugin_module()
+
+    class _OldCtx(_Ctx):
+        def register_hook(self, name, callback, **kwargs):
+            if kwargs:
+                raise TypeError("register_hook() got an unexpected keyword argument 'hold_stream'")
+            self.hooks.append((name, callback.__name__, False))
+
+    ctx = _OldCtx({"memcheck.enabled": True})
+    plugin._register_memcheck(ctx)
+    transform = [h for h in ctx.hooks if h[0] == "transform_llm_output"]
+    assert transform, "transform hook must still be registered on an old host"

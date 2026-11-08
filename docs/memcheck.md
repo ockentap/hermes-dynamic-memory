@@ -22,6 +22,40 @@ Both properties are load-bearing: the tag must not inflate the stored transcript
 keyword miner — the words `prompt`, `memory` and `hidden` would otherwise start
 competing for slots in the index they are auditing.
 
+## Off by default — turn it on in the plugin's own config
+
+Soliciting a self-report changes replies and costs output tokens on every
+session it touches, so memcheck is **opt-in**: a fresh install asks nothing.
+Enable it in `config.yaml` (a restart of the host, not a reinstall, is enough):
+
+```yaml
+plugins:
+  entries:
+    dynmem:
+      settings:
+        memcheck:
+          enabled: true
+```
+
+`MEMCHECK_DISABLED=1` (also `true`/`yes`) remains a one-process **kill switch**
+for debugging — it can only turn memcheck off, never on.
+
+When it is enabled, `transform_llm_output` is registered with `hold_stream=True`
+so the tag never streams to the user ahead of the rewrite; on a Hermes build
+that predates the kwarg the registration falls back to the plain form.
+
+## What it stores on disk
+
+| Path | Contents | Growth |
+|---|---|---|
+| `~/.hermes/state/memcheck/state.json` | per-session ring buffer of the last 4 user messages, ask counters, last verdict | bounded by the ring buffer |
+| `~/.hermes/state/memcheck/samples.jsonl` | one JSON record per returned tag: tag fields, `terms`, `problems`, the first **400 characters of the user's message** (`user_tail`) and the raw tag (`raw`, ≤600 chars) | rotates at 5 MiB to `samples.jsonl.1` (one previous window kept); override with `MEMCHECK_SAMPLES_MAX_BYTES` |
+
+The `user_tail` copy is what makes `hook` traceable — every claim is checked
+against the words the user actually typed — so it is stored deliberately. The
+state directory is dot-state outside `memories/`, so the index and orphan
+validators never see it.
+
 ## What gets asked, and when
 
 Turn 1 gets observables only. The user has not reacted yet, so "was this the
@@ -120,7 +154,7 @@ the uniqueness rule the whole feature exists to serve:
 | Path | Purpose |
 |---|---|
 | `~/.hermes/state/memcheck/state.json` | per-session ring buffer of the last 4 user messages, ask counters, last verdict |
-| `~/.hermes/state/memcheck/samples.jsonl` | one record per returned tag; append-only |
+| `~/.hermes/state/memcheck/samples.jsonl` | one record per returned tag; append-only, rotates at 5 MiB to `samples.jsonl.1` (see "What it stores on disk") |
 
 Both are dot-state, deliberately **not** in `memories/` — the memories directory
 is scanned by the orphan/index validators and mined for keyword candidates.
@@ -150,7 +184,8 @@ look identical without it: if `asked` climbs and `answered` does not, the model
 is dropping the tag or the transform is not reaching the reply, and nothing
 below it means anything.
 
-Disable without uninstalling: `MEMCHECK_DISABLED=1`.
+Opt-in, default off: `plugins.entries.dynmem.settings.memcheck.enabled: true`.
+Kill it for one process (debugging only): `MEMCHECK_DISABLED=1`.
 
 Platforms `cron`, `subagent`, `oneshot`, `batch` are skipped — no human reads
 the reply, and the turn counter there is not a conversation.

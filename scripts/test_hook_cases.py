@@ -23,7 +23,8 @@ sys.path.insert(0, PLUGIN_DIR)
 plugin = importlib.import_module("plugin")
 importlib.reload(plugin)
 
-M = os.path.expanduser("~/.hermes/memories/MEMORY.md")
+M = os.path.join(os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes"),
+                 "memories", "MEMORY.md")
 
 cases = [
     ("read-only cat",      "terminal",   {"command": f"cat {M}"},                       False),
@@ -86,9 +87,9 @@ from pathlib import Path
 with tempfile.TemporaryDirectory() as td:
     fake = Path(td) / "MEMORY.md"
     fake.write_text(
-        "java,jvm,heap,gc,profiling,jmx,tuning \u2192 java-performance.md\n"
+        "java jvm heap gc profiling jmx tuning \u2192 java-performance.md\n"
         "\u00a7\n"
-        "router,firmware,subnet,dns,dhcp,modem,openwrt \u2192 home-network.md\n",
+        "router firmware subnet dns dhcp modem openwrt \u2192 home-network.md\n",
         encoding="utf-8",
     )
     plugin.MEMORY_MD = fake
@@ -112,7 +113,7 @@ with tempfile.TemporaryDirectory() as td:
     real = plugin.handle_pre_tool_call(
         "memory",
         {"action": "replace", "target": "memory",
-         "old_text": "java,jvm", "content": "jvm,heap,gc,profiling,jmx,tuning,xmx \u2192 java-performance.md"},
+         "old_text": "java jvm", "content": "jvm heap gc profiling jmx tuning xmx \u2192 java-performance.md"},
     )
     real_blocked = isinstance(real, dict) and real.get("action") == "block"
     ok = not real_blocked

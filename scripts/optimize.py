@@ -165,8 +165,8 @@ def plan_once(store: pathlib.Path, body: str, context_block: str, heading: str,
     plans, tokens = [], 0
     for attempt in (1, 2):
         text, tok = lookup.call(SYSTEM, user + ("" if attempt == 1 else
-                                                "\n\nReturn JSON only, no prose."),
-                                max_tokens=6000)
+                                                "\n\nReturn ONLY the JSON object. No prose, no markdown fences, no trailing text."),
+                                max_tokens=8000)
         tokens += tok
         try:
             start, end = text.find("{"), text.rfind("}")

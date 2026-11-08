@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -113,10 +114,22 @@ def index_text(store) -> tuple[str, dict[str, list[str]]]:
     return "\n".join(lines), table
 
 
-def _lexical_scores(store, question: str) -> list[tuple[int, str]]:
-    """Score index lines AND header references by keyword overlap."""
+def _lexical_scores(store, question: str) -> list[tuple[float, str]]:
+    """Score index lines AND header references by IDF-weighted keyword overlap.
+
+    A rare word ("basalt-2") must outrank a common one ("reports"), otherwise a
+    question phrased with ordinary verbs routes to whichever memory happens to
+    use that verb.
+    """
     words = set(re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", question.lower()))
-    scored: list[tuple[int, str]] = []
+    scored: list[tuple[float, str]] = []
+    route_lines = [l for l in (store / "MEMORY.md").read_text(encoding="utf-8", errors="replace").splitlines()
+                   if "\u2192" in l and not l.lstrip().startswith("#")]
+    df: dict[str, int] = {}
+    for l in route_lines:
+        for k in set(l.rsplit("\u2192", 1)[0].split()):
+            df[k] = df.get(k, 0) + 1
+    n = max(1, len(route_lines))
     for line in (store / "MEMORY.md").read_text(encoding="utf-8", errors="replace").splitlines():
         if line.lstrip().startswith("#") and " — " in line and line.strip().endswith("."):
             # header reference: 'name.md — what it is. Read when …'
@@ -134,7 +147,8 @@ def _lexical_scores(store, question: str) -> list[tuple[int, str]]:
         if not target.endswith(".md"):
             continue
         kws = [k.strip().lstrip("!") for k in re.split(r"[,\s]+", kw) if k.strip()]
-        score = sum(1 for k in kws if k in words or (len(k) > 3 and k in question.lower()))
+        score = sum(math.log(1 + n / df.get(k, 1)) for k in kws
+                    if k in words or (len(k) > 3 and k in question.lower()))
         if score:
             scored.append((score, target))
     scored.sort(key=lambda x: -x[0])

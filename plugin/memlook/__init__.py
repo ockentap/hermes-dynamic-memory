@@ -31,10 +31,10 @@ INDEX_SYSTEM = (
     "filenames after the arrow. No prose, no explanation."
 )
 NODE_SYSTEM = (
-    "You are a memory router. You get one memory's routing card and a question. "
-    "Each line is '- when <condition> -> <child>.md'. Reply with JSON only: "
-    "{\"files\":[\"<name>.md\", ...]} listing at most {n} children whose condition "
-    "matches the question. No prose."
+    "You are a memory router. You get one routing table and a question. Each line "
+    "is '<keywords> -> <child.md>'. Reply with JSON only: "
+    "{\"files\":[\"<name>.md\", ...]} listing at most {n} children whose keywords "
+    "best match the question. No prose."
 )
 EDGE = re.compile(r"^[-*]\s+when\s+(?P<cond>.+?)\s+(?:\u2192|->)\s+(?P<target>[A-Za-z0-9_.\-]+\.md)\s*$", re.M)
 TRIVIAL = re.compile(r"^(yes|no|ok|okay|sure|thanks|thank you|y|n|yep|nope|yeah|nah|hi|hey|"
@@ -118,11 +118,18 @@ def index_text(store: Path) -> str:
     return "\n".join(lines)
 
 
+ROUTE = re.compile(r"^(?P<kw>.+?)\s*(?:\u2192|->)\s*(?P<t>[A-Za-z0-9_.\-]+\.md)\s*$", re.M)
+
+
 def children(store: Path, name: str) -> list[str]:
     p = store / name
     if not p.exists():
         return []
-    return [m.group("target") for m in EDGE.finditer(p.read_text(encoding="utf-8", errors="replace"))]
+    text = p.read_text(encoding="utf-8", errors="replace")
+    lines = [l.strip() for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
+    if not all(ROUTE.match(l) or EDGE.match(l) for l in lines):
+        return []
+    return [m.group("t") for m in ROUTE.finditer(text)] + [m.group("target") for m in EDGE.finditer(text)]
 
 
 def walk(question: str) -> dict:

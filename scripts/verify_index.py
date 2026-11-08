@@ -161,8 +161,34 @@ def check_related(memdir: str, onfile: set[str]):
     return ok, bad, warn
 
 
+ROUTE_RE = re.compile(r"^(?P<kw>.+?)\s*(?:\u2192|->)\s*(?P<target>[A-Za-z0-9_.\-]+\.md)\s*$")
+
+
+def is_router_file(path: str) -> bool:
+    """True when every non-comment, non-blank line is a route line.
+
+    A documentation file can contain an example arrow; it must not turn into a
+    router (and must not donate edges to the graph).
+    """
+    try:
+        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    except OSError:
+        return False
+    body = [l.strip() for l in lines if l.strip() and not l.strip().startswith("#")]
+    if not body:
+        return False
+    routes = sum(1 for l in body if ROUTE_RE.match(l) or RELATED_EDGE_RE.match(l))
+    # one malformed line must not turn the whole router into "content"
+    return routes > 0 and routes / len(body) >= 0.5
+
+
 def build_graph(memdir: str, onfile: set[str]) -> dict[str, set[str]]:
-    """Parent -> children from every valid `## Related` edge block."""
+    """Parent -> children from route lines and from `## Related` bullets.
+
+    A router file is a table: every non-comment line is `keywords → child.md`.
+    Old-style `- when … → child.md` bullets are still read, so a half-migrated
+    store still has a shape.
+    """
     graph: dict[str, set[str]] = {}
     for path in sorted(glob.glob(os.path.join(memdir, "*.md"))):
         base = os.path.basename(path)
@@ -172,11 +198,20 @@ def build_graph(memdir: str, onfile: set[str]) -> dict[str, set[str]]:
             text = open(path, encoding="utf-8").read()
         except Exception:
             continue
-        for _, block in related_blocks(text):
-            for _, line in block:
-                m = RELATED_EDGE_RE.match(line.strip())
-                if not m:
-                    continue
+        if not is_router_file(path):
+            continue
+        for raw in text.splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            m = ROUTE_RE.match(line)
+            if m:
+                target = m.group("target")
+                if target != base and target in onfile:
+                    graph.setdefault(base, set()).add(target)
+                continue
+            m = RELATED_EDGE_RE.match(line)
+            if m:
                 target = m.group("target")
                 if target != base and target in onfile:
                     graph.setdefault(base, set()).add(target)
@@ -300,81 +335,85 @@ def keyword_line(path: str) -> tuple[str, int, list[str]]:
     return "missing", 0, []
 
 
+def route_text(path: str) -> list[tuple[int, str]]:
+    """Lines of a router: every non-comment line is 'keywords → child.md'."""
+    out = []
+    try:
+        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    except OSError:
+        return out
+    for i, raw in enumerate(lines, 1):
+        s = raw.strip()
+        if not s or s.startswith("#"):
+            continue
+        out.append((i, s))
+    return out
+
+
 def check_keyword_tiers(memdir: str, index_kw: dict[str, list[str]],
                         graph: dict[str, set[str]], roots: set[str],
                         onfile: set[str]):
-    """Per-table keyword-line checks, enabled by `--keywords`.
+    """Validate every routing table: the index and each neuron's route lines.
 
-    A keyword is unique inside one routing table, not across the whole store:
-    the index is one table, and every neuron with links starts another for its
-    children. So two files under different parents may use the same word, and a
-    shared engram is checked against each parent's table separately.
-
-    Returns (failures, collisions, stats).
+    A table is a file whose lines are 'keywords → child.md'. Keywords must be
+    5–20, distinct inside one table, and a keyword routes to one child per
+    table; the same word may appear in different tables. Engrams carry no
+    keywords — their identity is the route line that points at them.
     """
     bad: list[tuple[str, int, str]] = []
-    depth = index_depths(graph, {r for r in roots if r in onfile})
-    parents: dict[str, set[str]] = {}
-    for src, targets in graph.items():
-        for t in targets:
-            parents.setdefault(t, set()).add(src)
     tables: dict[str, dict[str, set[str]]] = {}
-    per_tier: dict[int, set[str]] = {}
-    headers = 0
+    tiers: dict[str, int] = {"MEMORY.md": 1}
+    depth = index_depths(graph, {r for r in roots if r in onfile})
 
+    tables["MEMORY.md"] = {}
     for target, kws in index_kw.items():
-        per_tier.setdefault(1, set()).add(target)
         for kw in kws:
-            tables.setdefault("1:index", {}).setdefault(kw, set()).add(target)
+            tables["MEMORY.md"].setdefault(kw, set()).add(target)
 
-    for base in sorted(depth):
-        if base not in onfile:
-            continue
-        tier = depth[base] + 1
-        state, lineno, kws = keyword_line(os.path.join(memdir, base))
-        if state == "missing":
-            bad.append((base, 0, f"NO KEYWORD LINE (tier {tier} wants "
-                                 f"'keywords: ...' as the first line)"))
-            continue
-        if state == "misplaced":
-            bad.append((base, lineno, "KEYWORD LINE NOT FIRST (move it above "
-                                      "the heading)"))
-            continue
-        if state == "empty":
-            bad.append((base, 0, "EMPTY FILE"))
-            continue
-        headers += 1
-        if kws and kws[0].startswith("!"):
-            bad.append((base, lineno, "MARKER IS INDEX-ONLY (a neuron line "
-                                      "carries no !, !!, !!!)"))
-            continue
-        if not (MIN_KEYWORDS <= len(kws) <= MAX_KEYWORDS):
-            bad.append((base, lineno, f"KEYWORD COUNT {len(kws)} outside "
-                                      f"[{MIN_KEYWORDS},{MAX_KEYWORDS}] at tier {tier}"))
-            continue
-        if len(kws) != len(set(kws)):
-            bad.append((base, lineno, "DUPLICATE KEYWORDS IN LINE"))
-            continue
-        if any(" " in k or len(k) > 48 for k in kws):
-            bad.append((base, lineno, "KEYWORD CONTAINS SPACE OR TOO LONG"))
-            continue
-        per_tier.setdefault(tier, set()).add(base)
-        for table in (parents.get(base) or {"index"}):
-            key = f"{tier}:{table}"
+    for name in sorted(graph):
+        tier = (depth.get(name) or 1) + 1
+        tiers[name] = tier
+        table: dict[str, set[str]] = {}
+        for lineno, line in route_text(os.path.join(memdir, name)):
+            if ("\u2192" not in line) and ("->" not in line):
+                bad.append((name, lineno, "ROUTE LINE HAS NO ARROW"))
+                continue
+            kw_part, target = re.split(r"\u2192|->", line, maxsplit=1)
+            target = target.strip()
+            kws = [k.strip() for k in kw_part.split(",") if k.strip()]
+            if kws and kws[0].startswith("!"):
+                bad.append((name, lineno, "MARKER IS INDEX-ONLY (a route line carries no !, !!, !!!)"))
+                continue
+            if not (MIN_KEYWORDS <= len(kws) <= MAX_KEYWORDS):
+                bad.append((name, lineno, f"KEYWORD COUNT {len(kws)} outside "
+                                          f"[{MIN_KEYWORDS},{MAX_KEYWORDS}] at tier {tier}"))
+                continue
+            if len(kws) != len(set(kws)):
+                bad.append((name, lineno, "DUPLICATE KEYWORDS IN LINE"))
+                continue
+            if any(" " in k or len(k) > 48 for k in kws):
+                bad.append((name, lineno, "KEYWORD CONTAINS SPACE OR TOO LONG"))
+                continue
+            if target not in onfile:
+                bad.append((name, lineno, f"ROUTE TARGET MISSING {target!r}"))
+                continue
             for kw in kws:
-                tables.setdefault(key, {}).setdefault(kw, set()).add(base)
+                table.setdefault(kw, set()).add(target)
+        tables[name] = table
 
-    collisions: list[tuple[str, str, set[str]]] = []
-    for table in sorted(tables):
-        for kw, files in sorted(tables[table].items()):
-            if len(files) > 1:
-                collisions.append((table, kw, files))
+    collisions: list[tuple[str, int, str, set[str]]] = []
+    for name, table in sorted(tables.items()):
+        for kw, targets in sorted(table.items()):
+            if len(targets) > 1:
+                collisions.append((name, tiers.get(name, 1), kw, targets))
     stats = {
-        "tiers": max(per_tier, default=1),
-        "headers": headers,
-        "per_tier": {t: len(files) for t, files in per_tier.items()},
+        "tiers": max(tiers.values(), default=1),
+        "tables": len(tables),
+        "per_tier": {},
         "collisions": len(collisions),
     }
+    for t in tiers.values():
+        stats["per_tier"][t] = stats["per_tier"].get(t, 0) + 1
     return bad, collisions, stats
 
 
@@ -489,14 +528,8 @@ def main() -> int:
     # without its own index line. That is the point of the trail — a detail file
     # hangs off its parent instead of costing a line in the always-injected index.
     rel_ok, rel_bad, rel_warn = check_related(memdir, onfile)
-    related_targets = {
-        target
-        for path in glob.glob(os.path.join(memdir, "*.md"))
-        for _, block in related_blocks(open(path, encoding="utf-8", errors="replace").read())
-        for _, line in block
-        if (m := RELATED_EDGE_RE.match(line.strip()))
-        for target in [m.group("target")]
-    }
+    graph_all = build_graph(memdir, onfile)
+    related_targets = {t for targets in graph_all.values() for t in targets}
 
     # Reverse check: files on disk not referenced by any line. Files named in the
     # header block count as referenced — dynmem points its own docs at the header
@@ -516,7 +549,7 @@ def main() -> int:
     tree_bad: list = []
     tree_stats: dict = {}
     if args.tree:
-        graph = build_graph(memdir, onfile)
+        graph = graph_all
         tree_bad, tree_warn, tree_stats = check_tree(graph, seen_targets, onfile,
                                                      args.max_depth)
         for base, lineno, reason in tree_bad:
@@ -539,17 +572,16 @@ def main() -> int:
         for base, lineno, reason in kw_bad:
             where = f" ({base}:{lineno})" if lineno else f" ({base})"
             print(f"  [FAIL] {reason}{where}")
-        for table, kw, files in kw_collisions[:25]:
+        for table, tier, kw, files in kw_collisions[:25]:
             shown = ", ".join(sorted(files)[:6]) + (" ..." if len(files) > 6 else "")
-            where = ("the index" if table == "1:index"
-                     else "tier " + table.replace(":", " under "))
-            print(f"  [FAIL] KEYWORD NOT UNIQUE UNDER {where}: '{kw}' → "
-                  f"{len(files)} neurons ({shown})")
+            where = "the index" if table == "MEMORY.md" else table
+            print(f"  [FAIL] KEYWORD NOT UNIQUE IN {where} (tier {tier}): '{kw}' → "
+                  f"{len(files)} routes ({shown})")
         if len(kw_collisions) > 25:
             print(f"  [FAIL] ... and {len(kw_collisions) - 25} more tier collisions")
         per_tier = ", ".join(f"T{t} {v}" for t, v in sorted(kw_stats["per_tier"].items()))
         print(f"keywords: {kw_stats['tiers']} tier(s) [{per_tier}], "
-              f"{kw_stats['headers']} headers, {kw_stats['collisions']} collisions")
+              f"{kw_stats['tables']} tables, {kw_stats['collisions']} collisions")
 
     total = len(ok) + len(bad) + len(orphans)
     note = f", {separators} separator line(s) ignored" if separators else ""

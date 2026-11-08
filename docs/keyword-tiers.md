@@ -15,8 +15,9 @@ keywords: cron,daemon,unit,schedule,retry,home/media/jobs.py,systemd,failure
 ...
 ```
 
-- The line is the **first non-blank line of the file** — not after the heading. A reader
-  that stops at the title must not miss it.
+- Route lines are the **only** content of a router: one line per child, each with its own
+  5–20 keywords. An engram has no keyword line; its identity is the route line that points
+  at it.
 - Lowercase key `keywords:`; comma-separated; no spaces inside a keyword; ≤ 48 chars each.
 - 5 minimum (the locked block), 20 maximum.
 - **No marker.** `!`, `!!`, `!!!` are index-only; a neuron line has no retention policy.

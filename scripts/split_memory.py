@@ -129,12 +129,11 @@ def validate_plan(plan: dict, nlines: int, hub_name: str) -> list[dict]:
 def hub_text(plan: dict, leaves: list[dict], hub_name: str) -> str:
     title = plan.get("hub_title") or hub_name[:-3].replace("-", " ").title()
     intro = plan.get("hub_intro") or "Read this, then one leaf."
+    # A synapse is a router: one route line per child, keywords -> child.md.
     out = []
-    if plan.get("_synapse_keywords"):
-        out += ["keywords: " + ",".join(plan["_synapse_keywords"]), ""]
-    out += [f"# {title}", "", intro, "", "## Related memories"]
     for leaf in leaves:
-        out.append(f"- when {leaf['when']} → {leaf['file']}")
+        kws = leaf.get("_keywords") or [leaf["file"][:-3]]
+        out.append(f"{','.join(kws)} → {leaf['file']}")
     return "\n".join(out) + "\n"
 
 
@@ -177,8 +176,7 @@ def main() -> int:
         for leaf in leaves:
             body = "".join(lines[int(leaf["start"]) - 1:int(leaf["end"])])
             kw = leaf.get("_keywords")
-            header = (f"keywords: {','.join(kw)}\n" if kw else "")
-            header += f"# {leaf['file'][:-3].replace('-', ' ').title()}\nPart of: {hub_name}.\n\n"
+            header = f"# {leaf['file'][:-3].replace('-', ' ').title()}\nPart of: {hub_name}.\n\n"
             path = os.path.join(memdir, leaf["file"])
             if os.path.exists(path):
                 die(f"leaf already exists: {path}")

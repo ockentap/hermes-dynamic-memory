@@ -1,9 +1,9 @@
-"""Per-tier keyword lines: verify_index.py --keywords.
+"""Routers and engrams: verify_index.py --keywords.
 
-Every neuron carries its own keyword line, 5-20 keywords, the first five locked
-to the optimizer. Keywords are unique WITHIN a tier and may repeat ACROSS tiers,
-so a synapse may reuse its index line's words by design. The check is opt-in so a
-store written before the rule keeps validating clean.
+A router is a table of route lines, `keyword,…,keyword → child.md`; the index is
+the root router. An engram is content: it carries no keywords, because the line
+that points at it already says what it is. Keywords are unique inside one table
+and may repeat in another.
 """
 
 from __future__ import annotations
@@ -20,6 +20,9 @@ HEADER = (
     "keyword,keyword,keyword → file.md\n"
 )
 
+K5 = "alpha,beta,gamma,delta,epsilon"
+K5B = "zeta,eta,theta,iota,kappa"
+
 
 def _run(memdir, *args):
     return subprocess.run([sys.executable, str(SCRIPT), str(memdir / "MEMORY.md"), *args],
@@ -33,195 +36,117 @@ def _store(tmp_path, files, lines):
     return tmp_path
 
 
-KW = "keywords: alpha,beta,gamma,delta,epsilon\n"
+def _router(*routes) -> str:
+    return "\n".join(f"{kws} → {target}" for kws, target in routes) + "\n"
 
 
-def test_tier_two_headers_pass(tmp_path):
+def test_router_and_engrams_pass(tmp_path):
     memdir = _store(
         tmp_path,
         {
-            "one.md": KW + "# One\n",
-            "two.md": "keywords: zeta,eta,theta,iota,kappa\n# Two\n",
+            "hub.md": _router((K5, "one.md"), (K5B, "two.md")),
+            "one.md": "# One\nthe first memory\n",
+            "two.md": "# Two\nthe second memory\n",
         },
-        ["alpha,one,first,only,single → one.md",
-         "zeta,two,second,pair,double → two.md"],
+        [f"{K5} → hub.md"],
     )
-    r = _run(memdir, "--keywords")
+    r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 0, r.stdout
-    assert "2 headers" in r.stdout
     assert "0 collisions" in r.stdout
-    assert "tier(s)" in r.stdout
 
 
-def test_missing_header_fails(tmp_path):
-    memdir = _store(tmp_path, {"one.md": "# One\nno keywords here\n"},
-                    ["alpha,one,first,only,single → one.md"])
-    r = _run(memdir, "--keywords")
+def test_route_line_needs_five_keywords(tmp_path):
+    memdir = _store(
+        tmp_path,
+        {"hub.md": "alpha,beta,gamma → one.md\n", "one.md": "# One\n"},
+        [f"{K5} → hub.md"],
+    )
+    r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 1
-    assert "NO KEYWORD LINE" in r.stdout
+    assert "KEYWORD COUNT 3 outside" in r.stdout
 
 
-def test_keyword_line_must_be_first(tmp_path):
-    memdir = _store(tmp_path, {"one.md": "# One\n\n" + KW},
-                    ["alpha,one,first,only,single → one.md"])
-    r = _run(memdir, "--keywords")
+def test_route_line_without_arrow_fails(tmp_path):
+    body = _router((K5, "one.md"), (K5B, "two.md")) + "this line is prose\n"
+    memdir = _store(
+        tmp_path,
+        {"hub.md": body, "one.md": "# One\n", "two.md": "# Two\n"},
+        [f"{K5} → hub.md"],
+    )
+    r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 1
-    assert "KEYWORD LINE NOT FIRST" in r.stdout
+    assert "ROUTE LINE HAS NO ARROW" in r.stdout
 
 
-def test_twenty_one_keywords_fails(tmp_path):
-    kws = ",".join(f"k{i}" for i in range(21))
-    memdir = _store(tmp_path, {"one.md": f"keywords: {kws}\n# One\n"},
-                    ["alpha,one,first,only,single → one.md"])
-    r = _run(memdir, "--keywords")
-    assert r.returncode == 1
-    assert "KEYWORD COUNT 21 outside" in r.stdout
-
-
-def test_duplicate_in_line_fails(tmp_path):
-    memdir = _store(tmp_path, {"one.md": "keywords: alpha,beta,gamma,delta,alpha\n# One\n"},
-                    ["zeta,one,first,only,single → one.md"])
-    r = _run(memdir, "--keywords")
-    assert r.returncode == 1
-    assert "DUPLICATE KEYWORDS IN LINE" in r.stdout
-
-
-def test_marker_on_a_neuron_line_fails(tmp_path):
-    memdir = _store(tmp_path, {"one.md": "keywords: !!alpha,beta,gamma,delta\n# One\n"},
-                    ["zeta,one,first,only,single → one.md"])
-    r = _run(memdir, "--keywords")
+def test_marker_on_a_route_line_fails(tmp_path):
+    memdir = _store(
+        tmp_path,
+        {"hub.md": "!!alpha,beta,gamma,delta → one.md\n", "one.md": "# One\n"},
+        [f"{K5} → hub.md"],
+    )
+    r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 1
     assert "MARKER IS INDEX-ONLY" in r.stdout
 
 
-def test_keyword_repeats_across_tiers_are_allowed(tmp_path):
-    # 'alpha' is a T1 keyword and appears again in the T2 header.
-    memdir = _store(tmp_path, {"one.md": KW + "# One\n"},
-                    ["alpha,one,first,only,single → one.md"])
-    r = _run(memdir, "--keywords")
-    assert r.returncode == 0, r.stdout
-    assert "0 collisions" in r.stdout
-
-
-def test_collision_on_two_index_lines_fails(tmp_path):
+def test_duplicate_keyword_inside_one_table_fails(tmp_path):
     memdir = _store(
         tmp_path,
-        {"one.md": KW + "# One\n",
-         "two.md": "keywords: zeta,eta,theta,iota,kappa\n# Two\n"},
-        ["alpha,one,first,only,single → one.md",
-         "alpha,two,second,pair,double → two.md"],
+        {"hub.md": _router(("shared,beta,gamma,delta,epsilon", "one.md"),
+                           ("shared,eta,theta,iota,kappa", "two.md")),
+         "one.md": "# One\n", "two.md": "# Two\n"},
+        [f"{K5} → hub.md"],
     )
-    r = _run(memdir, "--keywords")
+    r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 1
-    assert "KEYWORD NOT UNIQUE UNDER the index" in r.stdout
+    assert "KEYWORD NOT UNIQUE IN hub.md" in r.stdout
 
 
-def test_collision_between_two_headers_fails(tmp_path):
+def test_same_keyword_in_different_tables_is_allowed(tmp_path):
     memdir = _store(
         tmp_path,
-        {"one.md": "keywords: shared,beta,gamma,delta,epsilon\n# One\n",
-         "two.md": "keywords: shared,eta,theta,iota,kappa\n# Two\n"},
-        ["alpha,one,first,only,single → one.md",
-         "zeta,two,second,pair,double → two.md"],
-    )
-    r = _run(memdir, "--keywords")
-    assert r.returncode == 1
-    assert "KEYWORD NOT UNIQUE UNDER tier 2 under index" in r.stdout
-
-
-def test_check_is_opt_in(tmp_path):
-    """Without --keywords the same headerless store still validates clean."""
-    memdir = _store(tmp_path, {"one.md": "# One\n"},
-                    ["alpha,one,first,only,single → one.md"])
-    r = _run(memdir)
-    assert r.returncode == 0, r.stdout
-
-
-def _hub(kw: str, *edges) -> str:
-    body = f"keywords: {kw}\n# Hub\n\n## Related memories\n"
-    return body + "\n".join(f"- when {c} → {t}" for c, t in edges) + "\n"
-
-
-def test_same_keyword_under_different_parents_is_allowed(tmp_path):
-    """Uniqueness is per routing table, not per depth."""
-    memdir = _store(
-        tmp_path,
-        {
-            "a.md": _hub("alpha,one,first,only,single",
-                         ("the user asks about the first thing", "c1.md")),
-            "b.md": _hub("zeta,two,second,pair,double",
-                         ("the user asks about the second thing", "c2.md")),
-            "c1.md": "keywords: shared,beta,gamma,delta,epsilon\n# C1\n",
-            "c2.md": "keywords: shared,eta,theta,iota,kappa\n# C2\n",
-        },
-        ["alpha,one,first,only,single → a.md",
-         "zeta,two,second,pair,double → b.md"],
+        {"a.md": _router(("shared,beta,gamma,delta,epsilon", "c1.md")),
+         "b.md": _router(("shared,eta,theta,iota,kappa", "c2.md")),
+         "c1.md": "# C1\n", "c2.md": "# C2\n"},
+        [f"{K5} → a.md", f"{K5B} → b.md"],
     )
     r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 0, r.stdout
     assert "0 collisions" in r.stdout
 
 
-def test_shared_engram_is_a_warning_not_an_error(tmp_path):
-    """Two hubs, distinct children each, and one engram both point at.
-
-    The shape Lav described: hermes.md -> hermes-vps / hermes-optiplex /
-    hermes-pi, and optiplex.md -> hermes-optiplex / optiplex-streaming.
-    """
+def test_shared_engram_is_a_warning(tmp_path):
     memdir = _store(
         tmp_path,
-        {
-            "a.md": _hub("alpha,one,first,only,single",
-                         ("the user asks about the first thing", "shared.md"),
-                         ("the user asks about a thing only A has", "a-only.md")),
-            "b.md": _hub("zeta,two,second,pair,double",
-                         ("the user asks about the second thing", "shared.md"),
-                         ("the user asks about a thing only B has", "b-only.md")),
-            "shared.md": "keywords: shared,beta,gamma,delta,epsilon\n# Shared\n",
-            "a-only.md": "keywords: aonly,alpha1,alpha2,alpha3,alpha4\n# A only\n",
-            "b-only.md": "keywords: bonly,beta1,beta2,beta3,beta4\n# B only\n",
-        },
-        ["alpha,one,first,only,single → a.md",
-         "zeta,two,second,pair,double → b.md"],
+        {"a.md": _router((K5, "shared.md"), ("aonly,alpha1,alpha2,alpha3,alpha4", "a-only.md")),
+         "b.md": _router((K5B, "shared.md"), ("bonly,beta1,beta2,beta3,beta4", "b-only.md")),
+         "shared.md": "# Shared\nthe memory\n",
+         "a-only.md": "# A\n", "b-only.md": "# B\n"},
+        [f"{K5} → a.md", f"{K5B} → b.md"],
     )
     r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 0, r.stdout
     assert "SHARED ENGRAM" in r.stdout
-    assert "2 synapses, 3 engrams" in r.stdout
-    assert "0 collisions" in r.stdout
 
 
 def test_five_station_chain_passes(tmp_path):
-    """index -> neuron -> neuron -> neuron -> engram is the deepest legal path."""
-    e = {f"n{i}.md": _hub(f"k{i},a{i},b{i},c{i},d{i}",
-                          (f"the user asks about level {i} of this", f"n{i+1}.md"))
-         for i in range(1, 4)}
-    e["n4.md"] = "keywords: k4,a4,b4,c4,d4\n# Engram\n"
-    memdir = _store(tmp_path, e, ["k0,a0,b0,c0,d0 → n1.md"])
+    e = {"n1.md": _router((K5, "n2.md")),
+         "n2.md": _router((K5B, "n3.md")),
+         "n3.md": _router(("k3a,k3b,k3c,k3d,k3e", "n4.md")),
+         "n4.md": "# Engram\nthe memory\n"}
+    memdir = _store(tmp_path, e, [f"{K5} → n1.md"])
     r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 0, r.stdout
     assert "tier 5/5" in r.stdout
 
 
 def test_sixth_station_is_too_deep(tmp_path):
-    e = {f"n{i}.md": _hub(f"k{i},a{i},b{i},c{i},d{i}",
-                          (f"the user asks about level {i} of this", f"n{i+1}.md"))
-         for i in range(1, 5)}
-    e["n5.md"] = "keywords: k5,a5,b5,c5,d5\n# Engram\n"
-    memdir = _store(tmp_path, e, ["k0,a0,b0,c0,d0 → n1.md"])
+    e = {"n1.md": _router((K5, "n2.md")),
+         "n2.md": _router((K5B, "n3.md")),
+         "n3.md": _router(("k3a,k3b,k3c,k3d,k3e", "n4.md")),
+         "n4.md": _router(("k4a,k4b,k4c,k4d,k4e", "n5.md")),
+         "n5.md": "# E\n"}
+    memdir = _store(tmp_path, e, [f"{K5} → n1.md"])
     r = _run(memdir, "--tree", "--keywords")
     assert r.returncode == 1
     assert "TREE TOO DEEP (tier 6 > 5)" in r.stdout
-
-
-def test_tier_five_must_be_an_engram(tmp_path):
-    e = {f"n{i}.md": _hub(f"k{i},a{i},b{i},c{i},d{i}",
-                          (f"the user asks about level {i} of this", f"n{i+1}.md"))
-         for i in range(1, 4)}
-    e["n4.md"] = _hub("k4,a4,b4,c4,d4",
-                      ("the user asks about level 4 of this", "n5.md"))
-    e["n5.md"] = "keywords: k5,a5,b5,c5,d5\n# Engram\n"
-    memdir = _store(tmp_path, e, ["k0,a0,b0,c0,d0 → n1.md"])
-    r = _run(memdir, "--tree", "--keywords")
-    assert r.returncode == 1
-    assert "TIER 5 MUST BE AN ENGRAM" in r.stdout

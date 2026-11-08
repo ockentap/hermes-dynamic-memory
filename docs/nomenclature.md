@@ -11,9 +11,10 @@ structure it might grow into.
 | **engram** | a terminal neuron: the memory itself lives there |
 | **link** | one `when … → child.md` edge; following it is a **hop** |
 
-A neuron is a router, not a note: keyword line plus links, nothing else. If a
-router still carries body text, that text belongs in an engram
-(`<neuron>-overview.md` does it automatically). A flat store is `index → engram`. Splitting a fat engram turns it into a **synapse** whose
+A neuron is a router, not a note: a table of route lines
+(`keyword,…,keyword → child.md`), nothing else. Its own keywords live on the line
+that points at it, in its parent's table. An engram carries content and no
+keywords at all. A flat store is `index → engram`. Splitting a fat engram turns it into a **synapse** whose
 children are engrams, or further synapses. Nothing is renamed on disk when a file changes
 role: the edges decide.
 

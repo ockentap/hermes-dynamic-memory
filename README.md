@@ -15,6 +15,22 @@ of built-in memory, and the cheapest path from memory to written artifact** of a
 
 ---
 
+## Write path
+
+New memories go through `scripts/memwrite.py`, not through repeated `memory`
+tool calls. The agent writes the prose into a plan; the script copies the store
+to a shadow, applies the plan, normalises every routing table (junk filter,
+dedupe per table, top up to five), validates with `verify_index --tree
+--keywords --engrams`, and only then backs up and writes.
+
+    python3 scripts/memwrite.py --store ~/.hermes/memories --plan plan.json [--dry-run]
+
+`--allow-rewrite` is required for a real write: the index is explicit. The plan
+schema is documented at the top of the script (`mode: new` with a neuron, its
+engrams and the index line, or `mode: update` with a target file and new
+content). No model calls; the prose is the agent's, the legality is the code's.
+
+
 ## Why this exists
 
 Built-in memory is one file injected verbatim into every prompt. Two consequences:

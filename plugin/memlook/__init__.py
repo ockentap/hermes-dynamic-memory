@@ -73,6 +73,7 @@ def _call(system: str, user: str, max_tokens: int = 1200) -> str:
     if not key:
         return ""
     body = {"model": MODEL, "temperature": 0, "max_tokens": max_tokens,
+            "reasoning_effort": "none",
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": user}]}
     req = urllib.request.Request(
@@ -104,13 +105,16 @@ def _files(text: str) -> list[str]:
 
 
 def index_text(store: Path) -> str:
+    """Compact router view: 'target: kw kw kw' (no commas/arrows: fewer tokens)."""
     lines = []
     for line in (store / "MEMORY.md").read_text(encoding="utf-8").splitlines():
         if "\u2192" not in line or line.lstrip().startswith("#"):
             continue
         kw, target = line.rsplit("\u2192", 1)
-        if target.strip().endswith(".md"):
-            lines.append(f"{kw.strip()} -> {target.strip()}")
+        if not target.strip().endswith(".md"):
+            continue
+        kws = " ".join(k.strip().lstrip("!") for k in kw.split(",") if k.strip())
+        lines.append(target.strip() + ": " + kws)
     return "\n".join(lines)
 
 

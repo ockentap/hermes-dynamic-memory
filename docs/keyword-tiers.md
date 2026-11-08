@@ -77,7 +77,7 @@ python3 scripts/verify_index.py ~/.hermes/memories/MEMORY.md --tree --keywords
 - `--keywords` is opt-in: a store written before the rule has no headers and must not fail CI.
 - Checks: missing or misplaced header, marker on a neuron, 5–20 band, duplicate in line,
   spaces/length, and per-tier collisions.
-- `scripts/split_memory.py` accepts `synapse_keywords` and per-leaf `keywords`, validates them,
+- `scripts/split_memory.py` accepts `synapse_keywords` and per-engram `keywords`, validates them,
   writes them as each file's first line, and runs the validator with `--keywords` when the
   tree is complete.
 - **Not enforced at write time.** The dynmem plugin guards `MEMORY.md`; neuron files are

@@ -94,7 +94,12 @@ def index_text(store) -> tuple[str, dict[str, list[str]]]:
     each in most tokenizers; dropping them shaves ~25% off the first call."""
     lines, table = [], {}
     for line in (store / "MEMORY.md").read_text(encoding="utf-8").splitlines():
-        if "\u2192" not in line or line.lstrip().startswith("#"):
+        if " — " in line and line.strip().endswith(".") and "\u2192" not in line:
+            m = re.match(r"\s*([A-Za-z0-9_.\-]+\.md)\s+—\s+(.+)", line)
+            if m:
+                lines.append(m.group(1) + ": " + m.group(2).rstrip("."))
+            continue
+        if "\u2192" not in line:
             continue
         kw, target = line.rsplit("\u2192", 1)
         target = target.strip()
@@ -106,16 +111,21 @@ def index_text(store) -> tuple[str, dict[str, list[str]]]:
     return "\n".join(lines), table
 
 
-def lexical_pick(store, question: str, limit: int = 2) -> list[str]:
-    """T1 without a model call: score index lines by keyword overlap.
-
-    The main agent already has the index in its prompt; when the script has to
-    start on its own, this is the free approximation of that pick.
-    """
+def _lexical_scores(store, question: str) -> list[tuple[int, str]]:
+    """Score index lines AND header references by keyword overlap."""
     words = set(re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", question.lower()))
-    scored = []
+    scored: list[tuple[int, str]] = []
     for line in (store / "MEMORY.md").read_text(encoding="utf-8", errors="replace").splitlines():
-        if "\u2192" not in line or line.lstrip().startswith("#"):
+        if line.lstrip().startswith("#") and " — " in line and line.strip().endswith("."):
+            # header reference: 'name.md — what it is. Read when …'
+            m = re.match(r"\s*([A-Za-z0-9_.\-]+\.md)\s+—\s+(.+)", line)
+            if m:
+                score = sum(1 for k in re.findall(r"[a-z][a-z0-9_.\-]{2,}", m.group(2).lower())
+                            if k in words)
+                if score:
+                    scored.append((score, m.group(1)))
+            continue
+        if "\u2192" not in line:
             continue
         kw, target = line.rsplit("\u2192", 1)
         target = target.strip()
@@ -126,6 +136,28 @@ def lexical_pick(store, question: str, limit: int = 2) -> list[str]:
         if score:
             scored.append((score, target))
     scored.sort(key=lambda x: -x[0])
+    return scored
+
+
+def smart_start(store, question: str, min_score: int = 2, limit: int = 2):
+    """Free T1 when the lexical match is clear; None (pay for a call) when not."""
+    scored = _lexical_scores(store, question)
+    if not scored:
+        return None
+    top = scored[0][0]
+    second = scored[1][0] if len(scored) > 1 else 0
+    if top >= min_score and top > second:
+        return [t for s_, t in scored if s_ == top][:limit]
+    return None
+
+
+def lexical_pick(store, question: str, limit: int = 2) -> list[str]:
+    """T1 without a model call: score index lines by keyword overlap.
+
+    The main agent already has the index in its prompt; when the script has to
+    start on its own, this is the free approximation of that pick.
+    """
+    scored = _lexical_scores(store, question)
     if not scored:
         return []
     top = scored[0][0]
@@ -183,7 +215,7 @@ def walk(store, question: str, max_files: int, start: list[str] | None = None):
             if child not in visited and (store / child).exists():
                 visited.add(child)
                 frontier.append((child, tier + 1))
-    return engrams, hops, stats
+    return engrams[:max_files], hops, stats
 
 
 SHEET_SYSTEM = (
@@ -243,8 +275,10 @@ def main() -> int:
     if args.sheet:
         engrams, hops, stats = walk_sheet(store, args.question, args.max_files)
     else:
-        start = args.start or (None if args.model_index else lexical_pick(store, args.question) or None)
-    engrams, hops, stats = walk(store, args.question, args.max_files, start)
+        start = args.start
+        if not start and not args.model_index:
+            start = smart_start(store, args.question)
+        engrams, hops, stats = walk(store, args.question, args.max_files, start)
     if args.json:
         print(json.dumps({"question": args.question, "files": engrams, "hops": hops,
                           "calls": stats["calls"], "router_tokens": stats["tokens"]}, indent=1))

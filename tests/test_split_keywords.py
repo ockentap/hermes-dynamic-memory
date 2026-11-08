@@ -1,7 +1,7 @@
 """split_memory.py: synapse/engram keyword lines in a split plan.
 
 A plan may carry `synapse_keywords` for the file being split and `keywords` per
-leaf; both are validated and written as each file's first line, and the
+engram; both are validated and written as each file's first line, and the
 post-apply validator runs with --keywords when every file has one.
 """
 
@@ -47,10 +47,10 @@ def _store(tmp_path):
     return tmp_path
 
 
-def _plan(tmp_path, leaves, synapse_keywords=None):
+def _plan(tmp_path, engrams, synapse_keywords=None):
     body = {"hub_title": "Fat — routing card",
-            "hub_intro": "Read this, then one leaf.",
-            "leaves": leaves}
+            "hub_intro": "Read this, then one engram.",
+            "engrams": engrams}
     if synapse_keywords is not None:
         body["synapse_keywords"] = synapse_keywords
     p = tmp_path / "plan.json"

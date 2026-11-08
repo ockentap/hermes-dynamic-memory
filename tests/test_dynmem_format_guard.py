@@ -48,7 +48,7 @@ def test_ascii_arrow_is_refused_on_the_single_op_path(shaper):
 
 
 def test_too_many_keywords_is_refused(shaper):
-    content = ",".join(f"kw{i}" for i in range(21)) + " \u2192 many.md"
+    content = " ".join(f"kw{i}" for i in range(21)) + " \u2192 many.md"
     result = _add(shaper, content)
     assert result.get("action") == "block", result
     assert "21 keywords" in result.get("message", "")
@@ -61,13 +61,13 @@ def test_too_few_keywords_is_refused(shaper):
 
 @pytest.mark.parametrize("count", [5, 20])
 def test_band_edges_are_accepted(shaper, count):
-    content = ",".join(f"kw{i}" for i in range(count)) + " \u2192 edge.md"
+    content = " ".join(f"kw{i}" for i in range(count)) + " \u2192 edge.md"
     assert _add(shaper, content) == {}
 
 
 def test_the_21st_keyword_is_refused_with_a_count_message(shaper):
     """The 20 ceiling is the user's safeguard and must name itself, on every path."""
-    content = ",".join(f"kw{i}" for i in range(21)) + " \u2192 many.md"
+    content = " ".join(f"kw{i}" for i in range(21)) + " \u2192 many.md"
     single = _add(shaper, content)
     assert single.get("action") == "block", single
     assert "21 keywords" in single.get("message", "")
@@ -81,7 +81,7 @@ def test_the_21st_keyword_is_refused_with_a_count_message(shaper):
 
 
 def test_patch_cannot_grow_a_line_past_twenty(shaper):
-    twenty = ",".join(f"kw{i}" for i in range(20))
+    twenty = " ".join(f"kw{i}" for i in range(20))
     (shaper._memory_dir() / "x.md").write_text("body", encoding="utf-8")
     shaper._memory_md().write_text(
         HEADER + f"{twenty} \u2192 x.md\n", encoding="utf-8"

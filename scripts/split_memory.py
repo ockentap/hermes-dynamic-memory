@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright 2026 ockentap
 # SPDX-License-Identifier: Apache-2.0
-"""Split one fat memory file into a hub plus leaves, from an explicit plan.
+"""Split one fat memory file into a hub plus engrams, from an explicit plan.
 
 The file being split BECOMES the hub, so the index line does not change and the
 first hop is untouched. Leaves are new files with a `Part of:` header and no
@@ -12,9 +12,9 @@ Plan format (line ranges must cover the file exactly, 1..N, no gaps):
 
   {
     "hub_title": "Medivia — routing card",
-    "hub_intro": "Read this, then one leaf.",
+    "hub_intro": "Read this, then one engram.",
     "synapse_keywords": "medivia,status,protocol,quests,log",
-    "leaves": [
+    "engrams": [
       {"file": "medivia-status.md", "start": 1, "end": 147,
        "keywords": "status,shipped,next,milestone,backlog",
        "when": "asking where the project stands, what shipped or what is next"},
@@ -41,7 +41,7 @@ import sys
 import time
 from typing import NoReturn
 
-MAX_LEAVES = 5
+MAX_ENGRAMS = 5
 MAX_DEPTH = 5
 MIN_KEYWORDS, MAX_KEYWORDS = 5, 20
 
@@ -87,53 +87,53 @@ def load_plan(path: str) -> dict:
 
 
 def validate_plan(plan: dict, nlines: int, hub_name: str) -> list[dict]:
-    leaves = plan.get("leaves")
-    if not isinstance(leaves, list) or not leaves:
-        die("plan.leaves must be a non-empty list")
-    if len(leaves) > MAX_LEAVES:
-        die(f"{len(leaves)} leaves > {MAX_LEAVES}; merge some sections")
+    engrams = plan.get("engrams")
+    if not isinstance(engrams, list) or not engrams:
+        die("plan.engrams must be a non-empty list")
+    if len(engrams) > MAX_ENGRAMS:
+        die(f"{len(engrams)} engrams > {MAX_ENGRAMS}; merge some sections")
     seen, total = set(), 0
-    for i, leaf in enumerate(leaves):
-        f = leaf.get("file", "")
+    for i, engram in enumerate(engrams):
+        f = engram.get("file", "")
         if not f.endswith(".md") or "/" in f or f == hub_name:
-            die(f"leaf[{i}].file must be a bare .md name, not the hub: {f!r}")
+            die(f"engram[{i}].file must be a bare .md name, not the hub: {f!r}")
         if f in seen:
-            die(f"duplicate leaf file {f}")
+            die(f"duplicate engram file {f}")
         seen.add(f)
-        if len(str(leaf.get("when", "")).split()) < 4:
-            die(f"leaf[{i}].when must be at least 4 words")
+        if len(str(engram.get("when", "")).split()) < 4:
+            die(f"engram[{i}].when must be at least 4 words")
         try:
-            a, b = int(leaf["start"]), int(leaf["end"])
+            a, b = int(engram["start"]), int(engram["end"])
         except Exception:
-            die(f"leaf[{i}] needs integer start/end")
+            die(f"engram[{i}] needs integer start/end")
         if a < 1 or b < a or b > nlines:
-            die(f"leaf[{i}] range {a}-{b} outside 1..{nlines}")
+            die(f"engram[{i}] range {a}-{b} outside 1..{nlines}")
         total += b - a + 1
-    ordered = sorted(leaves, key=lambda x: int(x["start"]))
+    ordered = sorted(engrams, key=lambda x: int(x["start"]))
     expect = 1
-    for leaf in ordered:
-        if int(leaf["start"]) != expect:
-            die(f"gap/overlap at line {expect}: leaf {leaf['file']} starts {leaf['start']}")
-        expect = int(leaf["end"]) + 1
+    for engram in ordered:
+        if int(engram["start"]) != expect:
+            die(f"gap/overlap at line {expect}: engram {engram['file']} starts {engram['start']}")
+        expect = int(engram["end"]) + 1
     if expect != nlines + 1:
         die(f"plan covers to line {expect - 1}, file has {nlines}")
     # `synapse_keywords` is the current name; `hub_keywords` stays accepted so a
     # plan written before the nomenclature rename keeps working.
     plan["_synapse_keywords"] = validate_keywords(
         plan.get("synapse_keywords", plan.get("hub_keywords")), "synapse_keywords")
-    for i, leaf in enumerate(leaves):
-        leaf["_keywords"] = validate_keywords(leaf.get("keywords"), f"leaf[{i}]")
+    for i, engram in enumerate(engrams):
+        engram["_keywords"] = validate_keywords(engram.get("keywords"), f"engram[{i}]")
     return ordered
 
 
-def hub_text(plan: dict, leaves: list[dict], hub_name: str) -> str:
+def hub_text(plan: dict, engrams: list[dict], hub_name: str) -> str:
     title = plan.get("hub_title") or hub_name[:-3].replace("-", " ").title()
-    intro = plan.get("hub_intro") or "Read this, then one leaf."
+    intro = plan.get("hub_intro") or "Read this, then one engram."
     # A synapse is a router: one route line per child, keywords -> child.md.
     out = []
-    for leaf in leaves:
-        kws = leaf.get("_keywords") or [leaf["file"][:-3]]
-        out.append(f"{' '.join(kws)} → {leaf['file']}")
+    for engram in engrams:
+        kws = engram.get("_keywords") or [engram["file"][:-3]]
+        out.append(f"{' '.join(kws)} → {engram['file']}")
     return "\n".join(out) + "\n"
 
 
@@ -151,15 +151,15 @@ def main() -> int:
     hub_name = os.path.basename(src)
     lines = open(src, encoding="utf-8").read().splitlines(keepends=True)
     plan = load_plan(args.plan)
-    leaves = validate_plan(plan, len(lines), hub_name)
-    hub = hub_text(plan, leaves, hub_name)
+    engrams = validate_plan(plan, len(lines), hub_name)
+    hub = hub_text(plan, engrams, hub_name)
 
     print(f"source: {src} ({len(lines)} lines, {os.path.getsize(src)} bytes)")
     print(f"hub   : {hub_name}")
-    for leaf in leaves:
-        n = int(leaf["end"]) - int(leaf["start"]) + 1
-        print(f"  leaf {leaf['file']:40s} lines {leaf['start']:4d}-{leaf['end']:<4d} ({n:4d})  when {leaf['when']}")
-    print(f"hub edges: {len(leaves)}/{MAX_LEAVES}")
+    for engram in engrams:
+        n = int(engram["end"]) - int(engram["start"]) + 1
+        print(f"  engram {engram['file']:40s} lines {engram['start']:4d}-{engram['end']:<4d} ({n:4d})  when {engram['when']}")
+    print(f"hub edges: {len(engrams)}/{MAX_ENGRAMS}")
 
     if not args.apply:
         print("\n--- hub preview ---")
@@ -173,13 +173,13 @@ def main() -> int:
     shutil.copy2(src, os.path.join(backup, hub_name))
     created: list[str] = []
     try:
-        for leaf in leaves:
-            body = "".join(lines[int(leaf["start"]) - 1:int(leaf["end"])])
-            kw = leaf.get("_keywords")
-            header = f"# {leaf['file'][:-3].replace('-', ' ').title()}\nPart of: {hub_name}.\n\n"
-            path = os.path.join(memdir, leaf["file"])
+        for engram in engrams:
+            body = "".join(lines[int(engram["start"]) - 1:int(engram["end"])])
+            kw = engram.get("_keywords")
+            header = f"# {engram['file'][:-3].replace('-', ' ').title()}\nPart of: {hub_name}.\n\n"
+            path = os.path.join(memdir, engram["file"])
             if os.path.exists(path):
-                die(f"leaf already exists: {path}")
+                die(f"engram already exists: {path}")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(header + body.rstrip() + "\n")
             created.append(path)
@@ -189,7 +189,7 @@ def main() -> int:
         index = os.path.join(memdir, "MEMORY.md")
         verify = os.path.join(os.path.dirname(os.path.abspath(__file__)), "verify_index.py")
         cmd = [sys.executable, verify, index, "--tree", "--max-depth", str(MAX_DEPTH)]
-        if plan.get("_synapse_keywords") and all(l.get("_keywords") for l in leaves):
+        if plan.get("_synapse_keywords") and all(l.get("_keywords") for l in engrams):
             cmd.append("--keywords")
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:

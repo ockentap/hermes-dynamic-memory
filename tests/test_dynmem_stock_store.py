@@ -92,8 +92,8 @@ def test_entry_edit_still_passes(shaper):
             "operations": [
                 {
                     "action": "patch",
-                    "old_text": "alpha,beta,gamma,delta,epsilon",
-                    "content": "alpha,beta,gamma,delta,epsilon,zeta",
+                    "old_text": "alpha beta gamma delta epsilon",
+                    "content": "alpha beta gamma delta epsilon zeta",
                 }
             ]
         },

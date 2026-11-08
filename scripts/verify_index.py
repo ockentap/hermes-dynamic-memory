@@ -417,6 +417,27 @@ def check_keyword_tiers(memdir: str, index_kw: dict[str, list[str]],
     return bad, collisions, stats
 
 
+MAX_ENGRAM_CHARS = 7000
+
+
+def check_engrams(memdir: str, onfile: set[str], graph: dict[str, set[str]]):
+    """Size audit: an engram is a terminal file; routers are exempt."""
+    routers = set(graph)
+    rows = []
+    for name in sorted(onfile):
+        if name.upper() in {"MEMORY.MD", "USER.MD"} or name in routers:
+            continue
+        try:
+            size = os.path.getsize(os.path.join(memdir, name))
+        except OSError:
+            continue
+        rows.append((size, name))
+    rows.sort(reverse=True)
+    over = [r for r in rows if r[0] > MAX_ENGRAM_CHARS]
+    median = rows[len(rows) // 2][0] if rows else 0
+    return rows, over, median
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("candidate")
@@ -429,6 +450,8 @@ def main() -> int:
     ap.add_argument("--max-depth", type=int, default=5,
                     help="maximum tier: 1 = index, 2 = the first neuron, "
                          "5 = the engram after at most three neurons (default 5)")
+    ap.add_argument("--engrams", action="store_true",
+                    help="audit engram sizes; list every file over the 7 KB ceiling")
     ap.add_argument("--keywords", action="store_true",
                     help="enforce a keyword line in every routed neuron: 5-20 "
                          "keywords, unique within a tier, repeats across tiers ok")
@@ -548,6 +571,12 @@ def main() -> int:
     # fail those. In tree mode the shape becomes index line -> hub -> leaf.
     tree_bad: list = []
     tree_stats: dict = {}
+    if args.engrams:
+        rows, over, median = check_engrams(memdir, onfile, graph_all)
+        print(f"engrams: {len(rows)}, median {median} bytes, {len(over)} over "
+              f"{MAX_ENGRAM_CHARS}")
+        for size, name in over[:15]:
+            print(f"  [OVER] {size:6d}  {name}")
     if args.tree:
         graph = graph_all
         tree_bad, tree_warn, tree_stats = check_tree(graph, seen_targets, onfile,

@@ -122,11 +122,16 @@ def _comma_word_ratio(text: str) -> float:
 
 
 def _looks_like_keywords(text: str) -> bool:
-    """True if content is keyword-style (high comma/word ratio).
-    Skips empty, header lines, or pure-arrow lines (those have their own check)."""
+    """True if content is a keyword pointer line.
+
+    Space-delimited pointers are the format now, so an arrow line that passes
+    the structural check counts. Anything else still has to look like keywords
+    rather than prose."""
     text = text.strip()
     if not text or text.startswith('#'):
         return True  # headers pass
+    if _validate_arrow_target(text):
+        return True
     return _comma_word_ratio(text) >= MIN_COMMA_WORD_RATIO
 
 
@@ -189,16 +194,16 @@ def _validate_arrow_target(text: str) -> bool:
     if target.startswith(("/", "~")):
         return False
 
-    # Keywords: comma-separated, lowercase-ish, sane count.
-    kws = [k.strip() for k in keywords.split(",") if k.strip()]
+    # Keywords are SPACE-separated (2026-11-08). Commas are no longer a
+    # delimiter; a line that still carries them is rejected so the store keeps
+    # one format.
+    if "," in keywords:
+        return False
+    kws = keywords.split()
     if not kws:
         return False
     if not (MIN_KEYWORDS <= len(kws) <= MAX_KEYWORDS):
         return False
-    # Reject prose: an index line's "keywords" must not contain spaces.
-    for k in kws:
-        if " " in k:
-            return False
     return True
 
 
@@ -213,7 +218,7 @@ def _keyword_band_error(text: str) -> str | None:
     m = re.match(r"^(.+?)\s*→\s*(\S+)\s*$", (text or "").strip())
     if not m:
         return None
-    kws = [k.strip() for k in m.group(1).split(",") if k.strip()]
+    kws = [k for k in re.split(r"[,\s]+", m.group(1).strip()) if k]
     if MIN_KEYWORDS <= len(kws) <= MAX_KEYWORDS:
         return None
     if len(kws) > MAX_KEYWORDS:
@@ -227,6 +232,88 @@ def _keyword_band_error(text: str) -> str | None:
         f"[dynmem] {len(kws)} keywords: an index line carries at least "
         f"{MIN_KEYWORDS}. Propose edits, do not strip a line below the floor."
     )
+
+
+# ---------------------------------------------------------------------------
+# Neuron (router) enforcement — added 2026-11-08.
+#
+# A neuron is a table of route lines and nothing else:
+#     keyword keyword keyword → child.md
+# The hook validates the *resulting* text of a write_file/patch that targets a
+# .md file in the store, so a malformed router never reaches disk.
+# ---------------------------------------------------------------------------
+ROUTE_LINE_RE = re.compile(r"^(?P<kw>[^\s].*?)\s*→\s*(?P<t>[A-Za-z0-9_.\-]+\.md)\s*$")
+
+
+def _store_files() -> set[str]:
+    try:
+        return {p.name for p in _memory_dir().glob("*.md")}
+    except OSError:
+        return set()
+
+
+def _router_problem(path: str, text: str) -> str | None:
+    """Return a blocking message when `text` is a malformed router, else None.
+
+    Content files (engrams) are free-form: if no line is a route line, the file
+    is treated as an engram and passes. But a file that IS a router must stay a
+    router — losing its last route line would orphan its children.
+    """
+    body = [l.strip() for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
+    routes = [(i, l) for i, l in enumerate(body, 1) if ROUTE_LINE_RE.match(l)]
+    was_router = False
+    try:
+        old = Path(path).read_text(encoding="utf-8", errors="replace")
+        was_router = any(ROUTE_LINE_RE.match(l.strip()) for l in old.splitlines() if l.strip())
+    except OSError:
+        pass
+    if not routes:
+        if was_router:
+            return ("[dynmem] this file is a neuron (a routing table); the write removes "
+                    "every route line. Keep one 'keywords → child.md' line per child, or "
+                    "delete the neuron deliberately.")
+        return None
+    if len(routes) < len(body):
+        bad = [l for l in body if not ROUTE_LINE_RE.match(l)]
+        return ("[dynmem] neuron files are routers: every non-comment line must be "
+                f"'keyword keyword → child.md'. Offending line: {bad[0][:90]!r}. "
+                "Move prose into an engram and leave a route line here.")
+    seen: dict[str, str] = {}
+    files = _store_files()
+    for i, line in routes:
+        kw_part, target = line.split("→", 1)
+        target = target.strip()
+        if "," in kw_part:
+            return (f"[dynmem] line {i}: commas are no longer the delimiter. "
+                    "Separate keywords with spaces: 'kw kw kw → child.md'.")
+        kws = kw_part.split()
+        if not (MIN_KEYWORDS <= len(kws) <= MAX_KEYWORDS):
+            return (f"[dynmem] line {i}: {len(kws)} keywords; a route line carries "
+                    f"{MIN_KEYWORDS}-{MAX_KEYWORDS}.")
+        if len(kws) != len(set(kws)):
+            return f"[dynmem] line {i}: duplicate keyword on the same route line."
+        if target not in files and not (Path(path).parent / target).exists():
+            return (f"[dynmem] line {i}: target {target!r} does not exist in the store. "
+                    "Create the child first, then point at it.")
+        for k in kws:
+            if k in seen and seen[k] != target:
+                return (f"[dynmem] line {i}: keyword {k!r} already routes to "
+                        f"{seen[k]!r}. Keywords are unique inside one table; give this "
+                        "child its own word.")
+            seen[k] = target
+    return None
+
+
+def _memory_relative(path: str) -> str | None:
+    """Return the file name when `path` is a .md inside the memory dir."""
+    try:
+        p = Path(path).expanduser().resolve()
+        base = _memory_dir().resolve()
+    except (OSError, RuntimeError):
+        return None
+    if p.parent != base or p.suffix != ".md":
+        return None
+    return p.name
 
 
 # User-approved wholesale rewrite mechanism (2026-09-17 fix).
@@ -530,6 +617,33 @@ def _path_header_hook(**_kwargs):
     return None
 
 
+def _billing_hook(session_id="", is_first_turn=False, platform="", **_kwargs):
+    """pre_llm_call: ask the billing question once, then state the mode.
+
+    Billing model decides the shape: request-billed -> flat index; token-billed
+    -> depth-5 hubs + delegated evaluator. The question is asked on the first
+    turn of the first session after install; the answer is stored in
+    state/dynmem/billing.json and the mode line is injected once per session.
+    """
+    if not is_first_turn:
+        return None
+    if (platform or "").lower() in {"cron", "subagent", "oneshot", "batch"}:
+        return None
+    try:
+        try:
+            from . import billing
+        except ImportError:
+            import billing  # loaded as a top-level module in some hosts
+        text = billing.setup_context()
+        if text:
+            billing.mark_asked()
+            return {"context": text}
+        mode_text = billing.mode_context()
+        return {"context": mode_text} if mode_text else None
+    except Exception:
+        return None
+
+
 def _names_index(cmd: str) -> bool:
     """True when the command string mentions the index file at all."""
     if "MEMORY.md" in cmd:
@@ -815,6 +929,28 @@ def handle_pre_tool_call(
     Returns {} for passthrough, or
     {"action": "block", "message": "..."} to block.
     """
+    if tool_name in {"write_file", "patch"}:
+        rel = _memory_relative(args.get("path") or "")
+        if rel and rel.upper() not in {"MEMORY.MD", "USER.MD"}:
+            raw_path = str(Path(args["path"]).expanduser())
+            text = None
+            if tool_name == "write_file":
+                text = args.get("content")
+            else:
+                try:
+                    cur = Path(raw_path).read_text(encoding="utf-8", errors="replace")
+                    old_s, new_s = args.get("old_string") or "", args.get("new_string") or ""
+                    if old_s:
+                        text = cur.replace(old_s, new_s, -1 if args.get("replace_all") else 1)
+                    else:
+                        text = cur
+                except OSError:
+                    text = None
+            if text is not None:
+                problem = _router_problem(raw_path, text)
+                if problem:
+                    return {"action": "block", "message": problem}
+
     if tool_name == "memory":
         # Same logic as before: enforce verbose + arrow rules on memory() calls.
         action = (args.get("action") or "add").lower()
@@ -1198,6 +1334,10 @@ def register(ctx):
     # stat and no read.
     try:
         ctx.register_hook("pre_llm_call", _path_header_hook)
+    except Exception:
+        pass
+    try:
+        ctx.register_hook("pre_llm_call", _billing_hook)
     except Exception:
         pass
     try:

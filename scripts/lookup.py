@@ -101,7 +101,7 @@ def index_text(store) -> tuple[str, dict[str, list[str]]]:
         if not target.endswith(".md"):
             continue
         kws = [k.strip().lstrip("!") for k in re.split(r"[,\s]+", kw) if k.strip()]
-        lines.append(target + ": " + " ".join(kws))
+        lines.append(" ".join(kws) + " \u2192 " + target)
         table[target] = kws
     return "\n".join(lines), table
 
@@ -169,14 +169,14 @@ def routing_sheet(store) -> str:
         if "\u2192" in line and not line.lstrip().startswith("#"):
             kw, target = line.rsplit("\u2192", 1)
             if target.strip().endswith(".md"):
-                idx.append(target.strip() + ": " +
-                           " ".join(k.strip().lstrip("!") for k in re.split(r"[,\s]+", kw) if k.strip()))
+                idx.append(" ".join(k.strip().lstrip("!")
+                                    for k in re.split(r"[,\s]+", kw) if k.strip())
+                           + " \u2192 " + target.strip())
     for path in sorted(store.glob("*.md")):
         text = path.read_text(encoding="utf-8", errors="replace")
-        edges = EDGE.findall(text)
-        if edges:
-            cards.append("## " + path.name + "\n"
-                         + "\n".join(f"- when {c} \u2192 {t}" for c, t in edges))
+        body = [l.strip() for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
+        if body and all(ROUTE.match(l) for l in body):
+            cards.append("## " + path.name + "\n" + "\n".join(body))
     return ("INDEX\n" + "\n".join(idx) + "\n\nROUTING CARDS\n" + "\n\n".join(cards))
 
 

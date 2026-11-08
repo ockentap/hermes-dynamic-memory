@@ -342,3 +342,5 @@ Apache-2.0. **hermes-dynamic-memory by ockentap** —
 https://github.com/ockentap/hermes-dynamic-memory
 Redistributors must retain LICENSE and NOTICE and credit the project. Issues and PRs welcome —
 porting notes, validator edge cases and benchmark results especially.
+
+Ideas considered but not built live in [`docs/maybe.md`](docs/maybe.md), each with the decision attached.

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import math
 import re
 import threading
 import urllib.request
@@ -159,6 +160,52 @@ def lexical_pick(store: Path, question: str, limit: int = 2) -> list[str]:
     return [t for score, t in scored if score == top][:limit]
 
 
+_DOCS: dict = {}
+
+
+def _docs(store: Path) -> dict:
+    key = str(store)
+    if key in _DOCS:
+        return _DOCS[key]
+    docs = {}
+    for p in store.glob("*.md"):
+        if p.name in {"MEMORY.md", "USER.md"}:
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        body = [l.strip() for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
+        if body and sum(1 for l in body if "→" in l) / len(body) >= 0.5:
+            continue
+        toks = {}
+        for t in re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", text.lower()):
+            toks[t] = toks.get(t, 0) + 1
+        docs[p.name] = toks
+    _DOCS[key] = docs
+    return docs
+
+
+def body_search(store: Path, question: str, limit: int = 2) -> list[str]:
+    """Lexical search over engram bodies - no model call."""
+    docs = _docs(store)
+    if not docs:
+        return []
+    df = {}
+    for toks in docs.values():
+        for t in toks:
+            df[t] = df.get(t, 0) + 1
+    n = len(docs)
+    q = set(re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", question.lower()))
+    stop = {"the","and","for","with","from","that","this","which","what","how","are","was",
+            "were","has","have","its","not","but","all","any","can","does","did","is","it"}
+    q = {t for t in q if t not in stop and df.get(t, n) <= max(2, n * 0.15)}
+    scored = []
+    for name, toks in docs.items():
+        score = sum(math.log(1 + n / df[t]) for t in q if t in toks)
+        if score:
+            scored.append((score, name))
+    scored.sort(key=lambda x: -x[0])
+    return [name for _, name in scored[:limit]]
+
+
 def walk(question: str, start: list[str] | None = None) -> dict:
     store = _store()
     stats = {"calls": 0, "tokens": 0}
@@ -169,7 +216,7 @@ def walk(question: str, start: list[str] | None = None) -> dict:
         stats["calls"] += 1
         return _files(text)[:MAX_FILES]
 
-    picked = start or lexical_pick(store, question)
+    picked = start or body_search(store, question) or lexical_pick(store, question)
     hops.append(("main agent", picked))
     queue = [(f, 2) for f in picked]
     seen, engrams = set(picked), []

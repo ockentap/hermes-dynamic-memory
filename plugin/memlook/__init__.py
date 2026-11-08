@@ -32,7 +32,7 @@ INDEX_SYSTEM = (
 )
 NODE_SYSTEM = (
     "You are a memory router. You get one routing table and a question. Each line "
-    "is '<keywords> -> <child.md>'. Reply with JSON only: "
+    "is '<keywords> → <child.md>'. Reply with JSON only: "
     "{\"files\":[\"<name>.md\", ...]} listing at most {n} children whose keywords "
     "best match the question. No prose."
 )

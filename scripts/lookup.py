@@ -35,7 +35,7 @@ INDEX_SYSTEM = (
 )
 NODE_SYSTEM = (
     "You are a memory router. You get one routing table and a question. Each line "
-    "is '<keywords> -> <child.md>'. Reply with JSON only: "
+    "is '<keywords> → <child.md>'. Reply with JSON only: "
     "{\"files\":[\"<name>.md\", ...]} listing at most {n} children whose keywords "
     "best match the question. No prose."
 )
@@ -156,7 +156,7 @@ def walk(store, question: str, max_files: int):
 SHEET_SYSTEM = (
     "You are a memory router. You get a keyword index and the routing cards of "
     "the memories that have children. Each index line is '<keywords> -> <file.md>'. "
-    "Each card lists '<when condition> -> <child.md>'. Follow the cards yourself "
+    "Each card lists '<when condition> \u2192 <child.md>'. Follow the cards yourself "
     "and reply with JSON only: {\"files\":[\"<name>.md\", ...]} naming at most {n} "
     "ENGRAM files (files that appear as a target and have no card of their own) "
     "which contain the answer. No prose."
@@ -176,7 +176,7 @@ def routing_sheet(store) -> str:
         edges = EDGE.findall(text)
         if edges:
             cards.append("## " + path.name + "\n"
-                         + "\n".join(f"- when {c} -> {t}" for c, t in edges))
+                         + "\n".join(f"- when {c} \u2192 {t}" for c, t in edges))
     return ("INDEX\n" + "\n".join(idx) + "\n\nROUTING CARDS\n" + "\n\n".join(cards))
 
 

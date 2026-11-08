@@ -100,7 +100,7 @@ def index_text(store) -> tuple[str, dict[str, list[str]]]:
         target = target.strip()
         if not target.endswith(".md"):
             continue
-        kws = [k.strip().lstrip("!") for k in kw.split(",") if k.strip()]
+        kws = [k.strip().lstrip("!") for k in re.split(r"[,\s]+", kw) if k.strip()]
         lines.append(target + ": " + " ".join(kws))
         table[target] = kws
     return "\n".join(lines), table
@@ -170,7 +170,7 @@ def routing_sheet(store) -> str:
             kw, target = line.rsplit("\u2192", 1)
             if target.strip().endswith(".md"):
                 idx.append(target.strip() + ": " +
-                           " ".join(k.strip().lstrip("!") for k in kw.split(",") if k.strip()))
+                           " ".join(k.strip().lstrip("!") for k in re.split(r"[,\s]+", kw) if k.strip()))
     for path in sorted(store.glob("*.md")):
         text = path.read_text(encoding="utf-8", errors="replace")
         edges = EDGE.findall(text)

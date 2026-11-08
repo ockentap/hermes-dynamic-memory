@@ -74,7 +74,7 @@ def main() -> int:
             if len(kws) < 5:
                 print(f"  WARN {name} -> {child}: only {len(kws)} keywords", file=sys.stderr)
             used.update(kws)
-            lines.append(f"{','.join(kws)} {ARROW} {child}")
+            lines.append(f"{' '.join(kws)} {ARROW} {child}")
         plan[name] = lines
 
     for name, lines in plan.items():

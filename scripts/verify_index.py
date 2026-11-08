@@ -328,7 +328,7 @@ def keyword_line(path: str) -> tuple[str, int, list[str]]:
         return "empty", 0, []
     m = KEYWORD_LINE_RE.match(lines[first].strip())
     if m:
-        return "ok", first + 1, [k.strip() for k in m.group("list").split(",") if k.strip()]
+        return "ok", first + 1, [k for k in re.split(r"[,\s]+", m.group("list")) if k]
     for j in range(first + 1, min(first + 6, len(lines))):
         if KEYWORD_LINE_RE.match(lines[j].strip()):
             return "misplaced", j + 1, []
@@ -380,7 +380,7 @@ def check_keyword_tiers(memdir: str, index_kw: dict[str, list[str]],
                 continue
             kw_part, target = re.split(r"\u2192|->", line, maxsplit=1)
             target = target.strip()
-            kws = [k.strip() for k in kw_part.split(",") if k.strip()]
+            kws = [k for k in re.split(r"[,\s]+", kw_part.strip()) if k]
             if kws and kws[0].startswith("!"):
                 bad.append((name, lineno, "MARKER IS INDEX-ONLY (a route line carries no !, !!, !!!)"))
                 continue
@@ -443,7 +443,7 @@ def main() -> int:
     header_refs: set[str] = set()
     _body_start = None
     for i, raw in enumerate(lines):
-        if raw.strip().startswith("keyword,keyword,keyword"):
+        if re.match(r"^keyword[,\s]+keyword[,\s]+keyword\b", raw.strip()):
             _body_start = i
             header_refs = set(re.findall(r"([A-Za-z0-9_.\-]+\.md)\b",
                                          "\n".join(lines[:i])))
@@ -501,10 +501,10 @@ def main() -> int:
             bad.append((f"ORPHAN (target '{target}' not in memdir)", line))
             continue
         seen_targets.add(target)
-        index_kw[target] = [k.strip() for k in kw_part.split(",") if k.strip()]
+        index_kw[target] = [k for k in re.split(r"[,\s]+", kw_part.strip()) if k]
 
         # Keyword checks
-        kws = [k.strip() for k in kw_part.split(",") if k.strip()]
+        kws = [k for k in re.split(r"[,\s]+", kw_part.strip()) if k]
         if not (MIN_KEYWORDS <= len(kws) <= MAX_KEYWORDS):
             bad.append((f"KEYWORD COUNT {len(kws)} outside [{MIN_KEYWORDS},{MAX_KEYWORDS}]", line))
             continue

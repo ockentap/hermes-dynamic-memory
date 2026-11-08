@@ -76,8 +76,8 @@ def test_keyword_lines_written_and_validated(tmp_path):
                         "--plan", str(plan), "--apply"], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     hub = (mem / "fat.md").read_text()
-    assert hub.startswith("goal,plan,next,milestone,backlog → fat-goal.md")
-    assert "frame,map,offset,npc,placement → fat-frame.md" in hub
+    assert hub.startswith("goal plan next milestone backlog → fat-goal.md")
+    assert "frame map offset npc placement → fat-frame.md" in hub
     goal = (mem / "fat-goal.md").read_text()
     assert goal.startswith("# Fat Goal\nPart of: fat.md.")
     assert "tier(s)" in r.stdout

@@ -133,7 +133,7 @@ def hub_text(plan: dict, leaves: list[dict], hub_name: str) -> str:
     out = []
     for leaf in leaves:
         kws = leaf.get("_keywords") or [leaf["file"][:-3]]
-        out.append(f"{','.join(kws)} → {leaf['file']}")
+        out.append(f"{' '.join(kws)} → {leaf['file']}")
     return "\n".join(out) + "\n"
 
 

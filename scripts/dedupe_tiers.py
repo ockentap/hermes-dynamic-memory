@@ -77,7 +77,7 @@ def parse_entry(line: str) -> dict | None:
     target = target.strip()
     if not target.endswith(".md") or "/" in target:
         return None
-    kws = [k.strip() for k in kw_part.split(",") if k.strip()]
+    kws = [k for k in re.split(r"[,\s]+", kw_part.strip()) if k]
     if not kws:
         return None
     marker = ""
@@ -91,7 +91,7 @@ def render(entry: dict) -> str:
     kws = list(entry["kws"])
     if entry["marker"]:
         kws[0] = entry["marker"] + kws[0]
-    return ",".join(kws) + " " + ARROW + " " + entry["target"]
+    return " ".join(kws) + " " + ARROW + " " + entry["target"]
 
 
 def read_store(store: pathlib.Path):

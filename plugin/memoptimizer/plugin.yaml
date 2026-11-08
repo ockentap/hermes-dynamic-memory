@@ -1,0 +1,6 @@
+name: memoptimizer
+version: 0.1.0
+description: "Idle memory optimiser. After 15 minutes without a message (or a manual ~/.hermes/state/optimize.trigger) it summarises the session's new facts and writes them through memwrite, logging '🧠 Memory Optimized'."
+author: ockentap
+provides_hooks:
+  - pre_llm_call

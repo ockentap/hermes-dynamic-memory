@@ -154,13 +154,23 @@ def apply_plan(store: pathlib.Path, plan: dict) -> list[str]:
         for line in lines:
             if not ROUTE.match(line):
                 die(f"neuron route line has no arrow: {line!r}")
-        (store / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+        existing = store / name
+        if existing.exists():
+            have = [l.strip() for l in existing.read_text(encoding="utf-8").splitlines() if l.strip()]
+            targets = {ROUTE.match(l).group("t") for l in have if ROUTE.match(l)}
+            merged = have + [l for l in lines if ROUTE.match(l).group("t") not in targets]
+            existing.write_text("\n".join(merged) + "\n", encoding="utf-8")
+        else:
+            existing.write_text("\n".join(lines) + "\n", encoding="utf-8")
         touched.append(name)
         for e in plan.get("engrams", []):
             en = e.get("name", "")
             if not en.endswith(".md") or "/" in en:
                 die(f"bad engram name {en!r}")
-            (store / en).write_text(e.get("content", "").rstrip() + "\n", encoding="utf-8")
+            target_path = store / en
+            if target_path.exists():
+                die(f"engram {en} already exists; use mode 'update' for it")
+            target_path.write_text(e.get("content", "").rstrip() + "\n", encoding="utf-8")
             touched.append(en)
         index_line = plan.get("index_line", "").strip()
         m_idx = ROUTE.match(index_line)

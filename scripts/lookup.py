@@ -26,6 +26,8 @@ import urllib.request
 BASE = os.environ.get("MEMLOOK_BASE_URL", "https://opencode.ai/zen/go/v1")
 MODEL = os.environ.get("MEMLOOK_MODEL", "deepseek-v4.1-flash")
 MAX_TIER = 5
+LOCAL_HOPS = False
+TRIM_READS = False   # read whole engrams: trimming can drop the needed detail   # keyword-only hop selection is not reliable enough yet
 
 INDEX_SYSTEM = (
     "You are a memory router. You get a keyword index, one line per memory, and "
@@ -167,6 +169,48 @@ def lexical_pick(store, question: str, limit: int = 2) -> list[str]:
 ROUTE = re.compile(r"^(?P<kw>.+?)\s*(?:\u2192|->)\s*(?P<t>[A-Za-z0-9_.\-]+\.md)\s*$", re.M)
 
 
+def card_with_titles(store, name: str) -> str:
+    """Route lines plus each child's H1, so the router sees what the file is.
+
+    The keyword line is the identity; the title disambiguates siblings whose
+    keywords overlap. Files are untouched — this is prompt-side only.
+    """
+    out = []
+    for line in (store / name).read_text(encoding="utf-8", errors="replace").splitlines():
+        m = ROUTE.match(line.strip())
+        if not m:
+            out.append(line)
+            continue
+        child = store / m.group("t")
+        title = ""
+        if child.exists():
+            for l in child.read_text(encoding="utf-8", errors="replace").splitlines()[:3]:
+                if l.startswith("# "):
+                    title = l[2:].strip()[:80]
+                    break
+        out.append(line.strip() + (("  — " + title) if title else ""))
+    return "\n".join(out)
+
+
+def score_routes(store, name: str, question: str) -> list[tuple[int, str]]:
+    """Score a neuron's route lines by keyword overlap (no model call)."""
+    p = store / name
+    if not p.exists():
+        return []
+    words = set(re.findall(r"[a-z0-9][a-z0-9_.\-/]{2,}", question.lower()))
+    out = []
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        m = ROUTE.match(line.strip())
+        if not m:
+            continue
+        kws = m.group("kw").split()
+        score = sum(1 for k in kws if k in words or (len(k) > 3 and k in question.lower()))
+        if score:
+            out.append((score, m.group("t")))
+    out.sort(key=lambda x: -x[0])
+    return out
+
+
 def children(store, name: str) -> list[str]:
     p = store / name
     if not p.exists():
@@ -208,9 +252,15 @@ def walk(store, question: str, max_files: int, start: list[str] | None = None):
         if tier >= MAX_TIER:
             engrams.append(name)
             continue
-        card = (store / name).read_text(encoding="utf-8", errors="replace")
-        got = ask(NODE_SYSTEM, f"CARD:\n{card[:6000]}\n\nQUESTION: {question}")
-        hops.append((name, got))
+        scored = score_routes(store, name, question) if LOCAL_HOPS else []
+        if scored and scored[0][0] >= 2 and (len(scored) == 1 or scored[0][0] - scored[1][0] >= 2):
+            top = scored[0][0]
+            got = [t for s_, t in scored if s_ == top][:max_files]
+            hops.append((name + " (local)", got))
+        else:
+            card = card_with_titles(store, name)
+            got = ask(NODE_SYSTEM, f"CARD:\n{card[:7000]}\n\nQUESTION: {question}")
+            hops.append((name, got))
         for child in got:
             if child not in visited and (store / child).exists():
                 visited.add(child)
@@ -226,6 +276,37 @@ SHEET_SYSTEM = (
     "ENGRAM files (files that appear as a target and have no card of their own) "
     "which contain the answer. No prose."
 )
+
+
+def read_for_context(store, files: list[str], question: str, per_file: int = 2500) -> str:
+    """Return the engram text, trimmed to the sections that match the question.
+
+    An engram is one subject, but a 5 KB file may still hold several aspects; the
+    question usually needs one. Full text when it is short or nothing matches.
+    """
+    words = set(re.findall(r"[a-z0-9][a-z0-9_.\-/]{3,}", question.lower()))
+    parts = []
+    for name in files:
+        p = store / name
+        if not p.exists():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        if len(text) <= per_file:
+            parts.append(text)
+            continue
+        chunks, cur = [], []
+        for line in text.splitlines():
+            if line.startswith("## ") and cur:
+                chunks.append("\n".join(cur)); cur = [line]
+            else:
+                cur.append(line)
+        if cur:
+            chunks.append("\n".join(cur))
+        scored = sorted(((sum(1 for w in re.findall(r"[a-z0-9][a-z0-9_.\-/]{3,}", c.lower()) if w in words), c)
+                         for c in chunks), key=lambda x: -x[0])
+        keep = scored[0][1] if scored and scored[0][0] > 0 else text
+        parts.append(keep[:per_file])
+    return "\n\n".join(parts)
 
 
 def routing_sheet(store) -> str:

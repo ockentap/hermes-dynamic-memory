@@ -16,14 +16,18 @@ import sys
 ARROW = "\u2192"
 ROUTE = re.compile(r"^(?P<kw>.+?)\s*\u2192\s*(?P<t>[A-Za-z0-9_.\-]+\.md)\s*$")
 GOOD = re.compile(r"^[a-z0-9][a-z0-9_.\-]{1,47}$")
+JUNK = re.compile(r"(\.md$|^v?\d+[.\-]\d+|.{30,}-.{10,}-.{10,})")
 FILLER = ["detail", "notes", "state", "facts", "values", "context", "history", "setup"]
+STOP = {"the", "and", "for", "with", "from", "that", "this", "into", "when", "what", "how",
+        "are", "was", "were", "has", "have", "its", "not", "but", "all", "any", "can",
+        "part", "under", "moved", "md", "section", "file", "files", "detail"}
 
 
 def sanitize(tokens):
     out = []
     for tok in tokens:
         t = tok.lower().strip(".,;:()[]`'\"")
-        if not t or not GOOD.match(t):
+        if not t or not GOOD.match(t) or t in STOP or JUNK.search(t):
             continue
         if t.isdigit() and len(t) < 2:
             continue
@@ -78,6 +82,8 @@ def main() -> int:
             for f in FILLER:
                 if len(kws) >= 5:
                     break
+                if f in STOP:
+                    continue
                 if f not in used and f not in kws:
                     kws.append(f)
             used.update(kws)

@@ -267,6 +267,20 @@ output tokens on every session it touches. `python3 scripts/memcheck_report.py`.
 **From the plugin catalog** (once the entry is merged): `hermes plugins install dynmem` —
 installs this repo pinned at a reviewed commit.
 
+**Upgrading from the `memory-shaper` listing.** The catalog key changed once the plugin
+outgrew its first entry; the install itself does not move. Installs land in
+`plugins/dynmem` (the manifest name) and `plugins.entries.dynmem` in `config.yaml` is
+untouched — only the catalog identity changes. Existing users run one command:
+
+```bash
+hermes plugins install dynmem --force     # replaces the code; keeps config and user files
+```
+
+That rewrites the install record to the `dynmem` listing, after which
+`hermes plugins update dynmem` is the normal path. Without it the installed copy keeps
+working, but `hermes plugins update` reports that the recorded catalog entry (the old
+`memory-shaper` key) no longer exists.
+
 **No core patch.** Stock Hermes joins entries with a `§` line, so the whole header is one entry and a
 single `remove` would delete it. The plugin refuses any `remove` / `replace` / `patch` whose
 `old_text` lands inside the header, and treats `§` as a separator it ignores, so the index works on an

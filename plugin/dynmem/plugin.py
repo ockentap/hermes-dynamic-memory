@@ -235,12 +235,12 @@ def _keyword_band_error(text: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Neuron (router) enforcement — added 2026-11-08.
+# Synapse (routing neuron) enforcement — added 2026-11-08.
 #
-# A neuron is a table of route lines and nothing else:
+# A synapse is a table of route lines and nothing else:
 #     keyword keyword keyword → child.md
 # The hook validates the *resulting* text of a write_file/patch that targets a
-# .md file in the store, so a malformed router never reaches disk.
+# .md file in the store, so a malformed synapse never reaches disk.
 # ---------------------------------------------------------------------------
 ROUTE_LINE_RE = re.compile(r"^(?P<kw>[^\s].*?)\s*→\s*(?P<t>[A-Za-z0-9_.\-]+\.md)\s*$")
 
@@ -253,11 +253,11 @@ def _store_files() -> set[str]:
 
 
 def _router_problem(path: str, text: str) -> str | None:
-    """Return a blocking message when `text` is a malformed router, else None.
+    """Return a blocking message when `text` is a malformed synapse, else None.
 
     Content files (engrams) are free-form: if no line is a route line, the file
-    is treated as an engram and passes. But a file that IS a router must stay a
-    router — losing its last route line would orphan its children.
+    is treated as an engram and passes. But a file that IS a synapse must stay
+    one — losing its last route line would orphan its children.
     """
     body = [l.strip() for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
     routes = [(i, l) for i, l in enumerate(body, 1) if ROUTE_LINE_RE.match(l)]
@@ -269,13 +269,13 @@ def _router_problem(path: str, text: str) -> str | None:
         pass
     if not routes:
         if was_router:
-            return ("[dynmem] this file is a neuron (a routing table); the write removes "
+            return ("[dynmem] this file is a synapse (a routing neuron); the write removes "
                     "every route line. Keep one 'keywords → child.md' line per child, or "
-                    "delete the neuron deliberately.")
+                    "delete the synapse deliberately.")
         return None
     if len(routes) < len(body):
         bad = [l for l in body if not ROUTE_LINE_RE.match(l)]
-        return ("[dynmem] neuron files are routers: every non-comment line must be "
+        return ("[dynmem] a synapse is a routing table: every non-comment line must be "
                 f"'keyword keyword → child.md'. Offending line: {bad[0][:90]!r}. "
                 "Move prose into an engram and leave a route line here.")
     seen: dict[str, str] = {}

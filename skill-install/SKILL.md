@@ -67,6 +67,15 @@ The choice is a store shape, not a toggle: flat → tiered means splitting fat
 engrams into synapses, tiered → flat means merging them back. Ask once, at setup,
 and say so before they choose.
 
+If they choose **fewer tokens** and the store is **already flat** (every index line
+points at a content file, no route lines below it), *offer* the migration — do not
+run it. A fresh store has nothing to migrate. The procedure lives in the
+`dynamic-memory` skill under "Migrating a flat store to neurons": the agent reads
+the store, writes `plan.json`, shows the plan, and applies only after an explicit
+yes. `python3 scripts/migrate.py --store $HERMES_HOME/memories --plan plan.json` is
+the dry run; `--apply` needs `DYNMEM_ALLOW_REWRITE=1` because the plugin blocks any
+wholesale rewrite of `MEMORY.md`.
+
 ## 1. No core patch — the stock store is fine
 
 Do not modify `tools/memory_tool_store.py`. On the stock store the header block

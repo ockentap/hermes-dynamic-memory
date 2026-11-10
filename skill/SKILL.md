@@ -234,6 +234,65 @@ python3 scripts/test_retrieval.py --expect <topic-file>
 
 If the transcript shows `search_files` instead of `read_file` on the expected file, the routing instruction is not reaching the model — see [Routing instructions are NOT injected for you](#routing-instructions-are-not-injected-for-you).
 
+## Migrating a flat store to neurons
+
+A store written under 1.5–1.8 is **flat**: every index line points at a content file. It is
+valid, and it is the request-cheap shape. The token-cheap shape groups those lines under
+synapses, so the resident index is one line per domain instead of one per memory.
+
+Migrate only when the user chose *fewer tokens* at setup (or asks to shrink the resident
+index) **and** the store is flat — every index line points at a file with no route lines.
+Never migrate unasked, and never "improve" the store in the same run.
+
+**1. Read before you plan.** Read the index and every file it points at. Group by subject,
+not by filename prefix: two files that share a subject belong in one synapse even when
+their names look unrelated, and two files with similar names are often different domains.
+A domain of one child is refused — a synapse with one route is a wasted hop.
+
+**2. Write the plan.** `plan.json`, one entry per domain:
+
+```json
+{"domains": [
+  {"synapse": "aklima-household.md",
+   "keywords": ["aklima", "klima", "android", "electricity", "gas", "vt", "mt", "tariff"],
+   "children": ["aklima-android-app.md", "energy-prices-bih.md"],
+   "rationale": "AC control and the tariff that decides when it runs"}
+]}
+```
+
+`child_keywords` (optional) re-keys a child; by default the child keeps the keywords from
+its old index line. Rules the checker enforces: 5–20 lowercase keywords per line, one
+token each; no keyword on two children of the same synapse (the validator calls that a
+tier collision — give it to one child or put it on the synapse's own line).
+
+**3. Check, then show.** `python3 scripts/migrate.py --store <memories> --plan plan.json`
+is a dry run: domain list, children, index lines before → after. Show that to the user and
+wait for an explicit yes. A rejected plan is a plan to fix, not to work around.
+
+**4. Apply.** The plugin refuses any tool command that mentions `MEMORY.md`, so the
+wholesale rewrite needs the documented approval — `DYNMEM_ALLOW_REWRITE=1` or
+`~/.hermes/state/.dynmem_rewrite_approved` — for that command only:
+
+```bash
+DYNMEM_ALLOW_REWRITE=1 python3 scripts/migrate.py --store <memories> --plan plan.json --apply
+```
+
+The run stages the whole result in a temp copy and publishes only after two gates pass:
+reachability (no memory becomes unreachable) and `verify_index.py --tree --keywords`.
+Backups land in `<memories>/../memories-backup/<run>/` and `~/dynmem-migrations/<run>/`
+(tar + plan + manifest with every file hash and line move).
+
+**5. Verify and report.** Validator exit 0, the hook-case battery, and three engrams read
+through their new route before calling it done. Report index lines before → after and
+where the backups are.
+
+**6. Undo inside a week.** `python3 scripts/migrate.py --undo <memories-backup/<run>>`
+restores the store byte-identical and refuses if the store changed after the run.
+
+Do not migrate while another writer is active (watchdog, optimizer tick, a cron job):
+take the store lock or wait. One level only — `index → synapse → engram`; a domain that
+needs a second level is split later with `deepen.py`, per file.
+
 ## Pitfalls
 
 ### `§` has no role — a newline means a new entry

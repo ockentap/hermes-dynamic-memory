@@ -27,7 +27,7 @@ def test_operations_single_arrow():
     """A single valid arrow operation should PASS."""
     args = {
         "operations": [
-            {"action": "add", "content": "java,jvm,gradle,jdk,toolchain → java-jvm.md"},
+            {"action": "add", "content": "java jvm gradle jdk toolchain → java-jvm.md"},
         ]
     }
     result = handle_pre_tool_call("memory", args)
@@ -92,7 +92,7 @@ def test_operations_mixed_valid_invalid():
     """First invalid op should stop the batch — first failure wins."""
     args = {
         "operations": [
-            {"action": "add", "content": "valid,keywords → file.md"},
+            {"action": "add", "content": "valid keywords → file.md"},
             {"action": "add", "content": "prose without any structure at all here"},
         ]
     }

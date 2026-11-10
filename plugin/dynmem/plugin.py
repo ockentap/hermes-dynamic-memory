@@ -1375,7 +1375,7 @@ def _register_memcheck(ctx):
 
     Opt-in: OFF unless ``plugins.entries.dynmem.settings.memcheck.enabled`` is
     true. On-by-default changed every reply and spent output tokens collecting
-    research samples, which is not a default a memory plugin gets to choose.
+    routing evidence, which is not a default a memory plugin gets to choose.
 
     Registration is fail-open: a missing or broken memcheck module must leave
     the format guard — the reason this plugin exists — fully working.

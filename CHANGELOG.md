@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.12.1 — 2026-11-10
+
+- **`parse_index` reads the live keyword format again.** It split keywords on
+  commas, which parsed **0 of 123 lines** on a 1.11 store (keywords are
+  space-delimited), so every `opened`/`wrong`/`right` claim was rejected as
+  `unknown_file` and every `hook` as untraceable. Commas are still accepted on
+  read so pre-1.11 stores keep validating. Coverage on the two live stores went
+  0% → 99%; a regression test pins the space form and the mixed form.
+- **The plugin's own tests are in the default suite.** `pytest.ini` listed only
+  `tests/`, so `test_memcheck.py`, `test_billing.py` and `test_operations.py`
+  never ran — which is how the comma regression survived. 55 → 105 tests.
+- Scrub "research samples" from the memcheck comment: the samples exist to score
+  keyword candidates for the optimizer, not to collect data for us.
+
 ## 1.12.0 — 2026-11-09
 
 Review fixes for the catalog PR (`NousResearch/hermes-agent#149712`, review by

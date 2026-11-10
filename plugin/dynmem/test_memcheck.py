@@ -83,6 +83,22 @@ def test_parse_index_skips_template_and_markers():
     assert marker == {"done.md": ["a", "b", "c"]}
 
 
+def test_parse_index_reads_space_delimited_keywords():
+    """The live format since 1.11: keywords are space-separated. Comma-only
+    splitting parsed zero lines of a current index and rejected every claim."""
+    live = (
+        "# index\n\nkeyword,keyword,keyword → file.md\n"
+        "gateway restart service webhook listener → gateway.md\n"
+        "ledvance bulb mesh btmesh setbright lightness → ledvance-bulb-control.md\n"
+    )
+    got = memcheck.parse_index(live)
+    assert got["gateway.md"] == ["gateway", "restart", "service", "webhook", "listener"]
+    assert "file.md" not in got
+    # Mixed separators keep working for stores that were hand-edited.
+    assert memcheck.parse_index("a b, c → mixed.md") == {"mixed.md": ["a", "b", "c"]}
+
+
+
 # ------------------------------------------------------------- validation
 
 def test_hook_must_be_typed_and_on_the_line():

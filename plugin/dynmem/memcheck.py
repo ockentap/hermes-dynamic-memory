@@ -232,7 +232,10 @@ def parse_index(text: str) -> dict[str, list[str]]:
         target = target.strip().strip("`").strip()
         if not target.endswith(".md"):
             continue
-        kws = [k.strip() for k in kw_blob.split(",") if k.strip()]
+        # Keywords are space-delimited since 1.11; commas are still accepted so
+        # pre-1.11 stores keep validating. Splitting on commas alone parsed zero
+        # lines of a current index, which rejected every claim as unknown_file.
+        kws = [k.strip() for k in re.split(r"[,\s]+", kw_blob) if k.strip()]
         if len(kws) < 2:
             # A single bare word before the arrow is prose, not an entry.
             continue

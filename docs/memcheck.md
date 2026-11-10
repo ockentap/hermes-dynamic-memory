@@ -22,6 +22,30 @@ Both properties are load-bearing: the tag must not inflate the stored transcript
 keyword miner — the words `prompt`, `memory` and `hidden` would otherwise start
 competing for slots in the index they are auditing.
 
+## What it costs
+
+Measured on the shipped templates, not estimated:
+
+| Item | Chars | ≈ tokens |
+|---|---|---|
+| turn-1 tag (`opened`/`rejected`/`hook`) | 466 | 116 |
+| verdict tag (`verdict`/`wrong`/`right`/`hook`/`fact`) | 694 | 174 |
+| the answer the model appends | ~134 | ~34 |
+
+Worst case per session is two asks (turn 1, then turn 2) ≈ **360 tokens**; a
+one-turn session costs ~150. Early stop means turns 3–4 are only reached when
+the answer never settles.
+
+The comparison that matters is against a misroute, because that is what memcheck
+exists to catch. The median topic file in a live store is ~2.3 KB ≈ **584
+tokens**, and every read is followed by a round trip that re-sends the whole
+prompt, so one wrong file costs one wrong read (584) + the right read (584) + an
+extra full-context round trip — 1,200–2,000 tokens depending on context size,
+plus a worse answer. **Break-even is roughly one misroute per 5–6 sessions**;
+any store that routes wrong more often than that is losing money without
+memcheck. That is the whole argument for measuring cost per misroute rather than
+cost per tag.
+
 ## Off by default — turn it on in the plugin's own config
 
 Soliciting a self-report changes replies and costs output tokens on every
@@ -204,6 +228,11 @@ and must expire. Cap 2 per line, decay after 60 days unused.
 
 ## Known limits
 
+- **Samples before 1.12.1 were all discarded.** `parse_index` split keywords on
+  commas while the live format had been space-delimited since 1.11, so it
+  recognised 0 of 123 lines and rejected every file claim. The parser is fixed;
+  samples already on disk keep the problems they were scored with and cannot be
+  recovered, so read the report only over samples written after the upgrade.
 - **Attribution is weak evidence.** The model can name the wrong word with full
   confidence. That is why a miss is recorded but only a *traceable* one demotes,
   and why one miss is enough to demote but two positives are needed to promote.

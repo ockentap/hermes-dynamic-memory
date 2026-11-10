@@ -16,3 +16,13 @@ provides_hooks:
   - transform_llm_output
 provides_middleware:
   - tool_execution
+
+config_schema:
+  profile:
+    type: str
+    default: ""
+    description: "What to optimise for. requests = one flat index, one read per recall, more resident tokens (cheapest in round-trips, stops scaling past ~50-60 memories). tokens = tiered index (index -> synapses -> engrams), 2-3 reads per recall, far fewer tokens (scales to hundreds). Ask the user once at setup: skill-install/SKILL.md section 0.5. Empty = not asked yet."
+  memcheck:
+    type: bool
+    default: false
+    description: "Opt-in memory-relevance self-report on the first four turns of a session. Costs output tokens; see docs/memcheck.md. (Read as memcheck.enabled through the plugin's settings tree.)"

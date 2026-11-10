@@ -19,6 +19,13 @@ Review fixes for the catalog PR (`NousResearch/hermes-agent#149712`, review by
 - `scripts/test_hook_cases.py` no longer fails on its own fixtures: the index
   path follows `$HERMES_HOME` and the fixture lines use the space-separated
   keyword format (commas have been rejected since 1.11.0). 0 failures.
+- **The one-time shape question actually ships.** `_billing_hook` had been wired
+  since 1.11 without its module, so it failed open and asked nothing.
+  `billing.py` now asks on the first human turn after install: *fewer requests*
+  (flat index, one read per recall, more resident tokens) or *fewer tokens*
+  (tiered index, 2-3 reads, far fewer tokens). The answer goes in
+  `plugins.entries.dynmem.settings.profile`, the question is asked once, and the
+  chosen shape is restated once per session. 6 new tests.
 
 ## 1.11.0 — 2026-11-08
 

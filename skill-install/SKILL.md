@@ -41,6 +41,32 @@ Do them in this order. Every step below was verified on stock v0.22.5.
 - Know `$HERMES_HOME` (not necessarily the install directory): `~/.hermes` for
   a normal install, `/opt/data` in the Docker image.
 
+## 0.5 Ask which profile first — requests or tokens
+
+Before writing anything, ask the user exactly one question:
+
+> **Optimize dynmem for fewer requests, or fewer tokens?**
+
+- **fewer requests** — a flat store: `MEMORY.md` is the whole index, one line per
+  memory, one read per recall. Cheapest in round-trips, most expensive in resident
+  tokens; it stops scaling at roughly 50–60 memories. Pick this for a small, stable
+  store on a fast/cheap model.
+- **fewer tokens** — the modern tiered store: index → synapses → engrams, a thin
+  resident block, 2–3 reads per recall. More requests, far fewer tokens per turn,
+  and it scales to hundreds of memories. This is the architecture the rest of this
+  skill installs.
+
+Record the answer — the plugin and every later session read it from the plugin's
+own settings tree:
+
+```bash
+hermes config set plugins.entries.dynmem.settings.profile tokens    # or: requests
+```
+
+The choice is a store shape, not a toggle: flat → tiered means splitting fat
+engrams into synapses, tiered → flat means merging them back. Ask once, at setup,
+and say so before they choose.
+
 ## 1. No core patch — the stock store is fine
 
 Do not modify `tools/memory_tool_store.py`. On the stock store the header block

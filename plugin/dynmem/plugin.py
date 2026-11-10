@@ -618,12 +618,14 @@ def _path_header_hook(**_kwargs):
 
 
 def _billing_hook(session_id="", is_first_turn=False, platform="", **_kwargs):
-    """pre_llm_call: ask the billing question once, then state the mode.
+    """pre_llm_call: ask the shape question once, then state the mode.
 
-    Billing model decides the shape: request-billed -> flat index; token-billed
-    -> depth-5 hubs + delegated evaluator. The question is asked on the first
-    turn of the first session after install; the answer is stored in
-    state/dynmem/billing.json and the mode line is injected once per session.
+    The two shapes trade requests against tokens: request-cheap is a flat index
+    (one read per recall, more resident tokens); token-cheap is the tiered store
+    (2-3 reads, far fewer tokens). The question is asked on the first turn of the
+    first session after install; the answer lives in
+    `plugins.entries.dynmem.settings.profile`, and the mode line is injected once
+    per session.
     """
     if not is_first_turn:
         return None
@@ -638,7 +640,7 @@ def _billing_hook(session_id="", is_first_turn=False, platform="", **_kwargs):
         if text:
             billing.mark_asked()
             return {"context": text}
-        mode_text = billing.mode_context()
+        mode_text = billing.mode_context(session_id)
         return {"context": mode_text} if mode_text else None
     except Exception:
         return None
@@ -1328,6 +1330,17 @@ def register(ctx):
     """
     ctx.register_hook("pre_tool_call", handle_pre_tool_call)
     ctx.register_middleware("tool_execution", handle_tool_execution_middleware)
+    # The one-time shape question ("fewer requests or fewer tokens?") stores its
+    # answer in the plugin's own settings; hand it to the hook module here.
+    try:
+        try:
+            from . import billing
+        except ImportError:
+            import billing  # type: ignore[no-redef]
+        _get = getattr(ctx, "get_config", None)
+        billing.configure(str(_get("profile", "") or "") if callable(_get) else "")
+    except Exception:
+        pass
     # v1.7.0: keep the single absolute memories-path line current. register()
     # covers a fresh process (before the first prompt is assembled); the hook
     # covers a MEMORY.md written mid-session, stat-cached so a turn costs one

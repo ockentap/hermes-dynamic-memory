@@ -260,26 +260,32 @@ file, and discards what does not check out. Off by default — enable with
 `plugins.entries.dynmem.settings.memcheck.enabled: true` — because it changes replies and costs
 output tokens on every session it touches. `python3 scripts/memcheck_report.py`.
 
+When enabled it appends one record per checked turn to `~/.hermes/state/memcheck/samples.jsonl`:
+the tag fields, the matched terms and problems, the first **400 characters of the user's message**
+and the raw tag. The file rotates at 5 MiB to `samples.jsonl.1`, keeping one previous window
+(`MEMCHECK_SAMPLES_MAX_BYTES` overrides the cap). Nothing leaves the machine.
+
 ---
 
 ## Install
 
-**From the plugin catalog** (once the entry is merged): `hermes plugins install dynmem` —
-installs this repo pinned at a reviewed commit.
+**From the plugin catalog** (once the entry is merged): `hermes plugins install memory-shaper` —
+installs this repo pinned at a reviewed commit. The catalog key is `memory-shaper`: it predates
+the rename, and installs update through the key recorded when they were installed. The package
+inside is `dynmem`, which is what the install directory (`plugins/dynmem`) and the config key
+(`plugins.entries.dynmem`) use — the two names are deliberate, not a mistake.
 
-**Upgrading from the `memory-shaper` listing.** The catalog key changed once the plugin
-outgrew its first entry; the install itself does not move. Installs land in
-`plugins/dynmem` (the manifest name) and `plugins.entries.dynmem` in `config.yaml` is
-untouched — only the catalog identity changes. Existing users run one command:
+**Upgrading.** An existing install keeps updating through its recorded key:
 
 ```bash
-hermes plugins install dynmem --force     # replaces the code; keeps config and user files
+hermes plugins update memory-shaper
 ```
 
-That rewrites the install record to the `dynmem` listing, after which
-`hermes plugins update dynmem` is the normal path. Without it the installed copy keeps
-working, but `hermes plugins update` reports that the recorded catalog entry (the old
-`memory-shaper` key) no longer exists.
+To replace the code while keeping config and user files:
+
+```bash
+hermes plugins install memory-shaper --force
+```
 
 **No core patch.** Stock Hermes joins entries with a `§` line, so the whole header is one entry and a
 single `remove` would delete it. The plugin refuses any `remove` / `replace` / `patch` whose

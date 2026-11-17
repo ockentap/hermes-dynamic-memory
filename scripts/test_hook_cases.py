@@ -92,6 +92,9 @@ with tempfile.TemporaryDirectory() as td:
         "router firmware subnet dns dhcp modem openwrt \u2192 home-network.md\n",
         encoding="utf-8",
     )
+    _orig_memory_md = plugin._memory_md
+    _orig_resolved = getattr(plugin, "_memory_md_resolved", None)
+    _orig_const = getattr(plugin, "MEMORY_MD", None)
     plugin.MEMORY_MD = fake
     # 1.4.5+ resolves the index path per call (profile-aware); patch the resolver
     # too, otherwise the guard reads the real host MEMORY.md, not this fixture.
@@ -109,16 +112,43 @@ with tempfile.TemporaryDirectory() as td:
     print(f"  [{'PASS' if ok else 'FAIL'}] replace on separator refused  blocked={blocked} "
           f"reason={'separator' if 'separator' in msg else msg[:48]}")
 
-    # A replace targeting a real entry line must still work.
-    real = plugin.handle_pre_tool_call(
-        "memory",
-        {"action": "replace", "target": "memory",
-         "old_text": "java jvm", "content": "jvm heap gc profiling jmx tuning xmx \u2192 java-performance.md"},
+    # Restore the real resolver: the cases below test the live store, and leaving
+    # the fixture patched made them read a temp file that no longer exists.
+    plugin._memory_md = _orig_memory_md
+    if _orig_resolved is not None:
+        plugin._memory_md_resolved = _orig_resolved
+    if _orig_const is not None:
+        plugin.MEMORY_MD = _orig_const
+
+    # A replace targeting a real entry line must still work. Derive the entry from
+    # the live index instead of hard-coding one: a fixed 'java jvm' fixture went
+    # stale the moment the store no longer had a java line, and the case then
+    # failed for a reason that had nothing to do with the guard.
+    try:
+        with open(M, encoding="utf-8") as fh:
+            _lines = [l.strip() for l in fh.read().splitlines()]
+    except OSError:
+        _lines = []
+    _memdir = os.path.dirname(M)
+    real_entry = next(
+        (l for l in _lines
+         if "\u2192" in l and not l.startswith("#")
+         and os.path.exists(os.path.join(_memdir, l.rsplit("\u2192", 1)[-1].strip()))),
+        None,
     )
-    real_blocked = isinstance(real, dict) and real.get("action") == "block"
-    ok = not real_blocked
-    fails += (not ok)
-    print(f"  [{'PASS' if ok else 'FAIL'}] replace on real entry allowed  blocked={real_blocked}")
+    if real_entry is None:
+        print("  [SKIP] replace on real entry allowed  (no routable entry in the store)")
+    else:
+        real = plugin.handle_pre_tool_call(
+            "memory",
+            {"action": "replace", "target": "memory",
+             "old_text": real_entry, "content": real_entry},
+        )
+        real_blocked = isinstance(real, dict) and real.get("action") == "block"
+        ok = not real_blocked
+        fails += (not ok)
+        print(f"  [{'PASS' if ok else 'FAIL'}] replace on real entry allowed  blocked={real_blocked}"
+              + (f" reason={real.get('message', '')[:80]}" if real_blocked else ""))
 
 print("\nFAILURES:", fails)
 sys.exit(1 if fails else 0)

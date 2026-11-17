@@ -61,6 +61,9 @@ def test_too_few_keywords_is_refused(shaper):
 
 @pytest.mark.parametrize("count", [5, 20])
 def test_band_edges_are_accepted(shaper, count):
+    # The target must exist first: the guard refuses an index line pointing at a
+    # file that was never written (write the engram, then route to it).
+    (shaper._memory_dir() / "edge.md").write_text("# edge\n", encoding="utf-8")
     content = " ".join(f"kw{i}" for i in range(count)) + " \u2192 edge.md"
     assert _add(shaper, content) == {}
 

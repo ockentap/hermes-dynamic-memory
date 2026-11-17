@@ -252,6 +252,100 @@ def _store_files() -> set[str]:
         return set()
 
 
+def _route_parts(line: str) -> tuple[list[str], str] | None:
+    """(keywords, target) for a route line, or None. Accepts space or comma keywords."""
+    if "\u2192" not in line:
+        return None
+    kw, target = line.split("\u2192", 1)
+    kws = [k for k in re.split(r"[,\s]+", kw.strip()) if k]
+    target = target.strip()
+    if not kws or not target:
+        return None
+    return kws, target
+
+
+def _index_line_for(target: str, exclude_line: str | None = None) -> str | None:
+    """The existing index line routing to `target`, if any."""
+    try:
+        text = _memory_md().read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    skip = exclude_line.strip() if exclude_line else None
+    for line in text.splitlines():
+        s = line.strip()
+        if skip is not None and s == skip:
+            continue
+        parts = _route_parts(s)
+        if parts and parts[1] == target:
+            return s
+    return None
+
+
+def _other_parent(target: str, skip: str) -> str | None:
+    """A synapse other than `skip` that already routes to `target`."""
+    memdir = _memory_dir()
+    for name in sorted(_store_files()):
+        if name in {"MEMORY.md", skip, target}:
+            continue
+        try:
+            body = (memdir / name).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in body.splitlines():
+            parts = _route_parts(line.strip())
+            if parts and parts[1] == target:
+                return name
+    return None
+
+
+def _index_line_semantics(content: str, exclude_line: str | None = None) -> str | None:
+    """Cross-line invariants for a proposed index line.
+
+    The format checks are line-local; these need the whole store. Every one of
+    them used to be caught only by the offline validator, so duplicate targets,
+    reused keywords and double-homed children accumulated in live stores while
+    each individual write looked perfectly legal.
+    """
+    parts = _route_parts(content.strip())
+    if not parts:
+        return None
+    kws, target = parts
+    memdir = _memory_dir()
+    if not (memdir / target).exists():
+        return (f"[dynmem] target {target!r} does not exist in {memdir}. Write the topic "
+                "file first (write_file), then add its index line.")
+    existing = _index_line_for(target, exclude_line=exclude_line)
+    if existing:
+        return (f"[dynmem] {target} already has an index line:\n  {existing}\n"
+                "One line per topic file. Edit that line (memory replace) to add keywords "
+                "instead of adding a second route to the same file.")
+    try:
+        text = _memory_md().read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        text = ""
+    taken: dict[str, str] = {}
+    for line in text.splitlines():
+        s = line.strip()
+        if exclude_line is not None and s == exclude_line.strip():
+            continue
+        parts = _route_parts(s)
+        if not parts:
+            continue
+        for k in parts[0]:
+            taken.setdefault(k, parts[1])
+    for k in kws:
+        if k in taken and taken[k] != target:
+            return (f"[dynmem] keyword {k!r} already routes to {taken[k]!r} in the index. "
+                    "Keywords are unique per tier: pick a word that is not taken, or route "
+                    "this memory through the synapse that already owns the word.")
+    parent = _other_parent(target, "MEMORY.md")
+    if parent:
+        return (f"[dynmem] {target} is already a child of {parent}. A memory has one home: "
+                "an index line or a parent edge, not both. Drop this index line, or remove "
+                f"the edge from {parent} first.")
+    return None
+
+
 def _router_problem(path: str, text: str) -> str | None:
     """Return a blocking message when `text` is a malformed synapse, else None.
 
@@ -279,6 +373,7 @@ def _router_problem(path: str, text: str) -> str | None:
                 f"'keyword keyword → child.md'. Offending line: {bad[0][:90]!r}. "
                 "Move prose into an engram and leave a route line here.")
     seen: dict[str, str] = {}
+    seen_targets: dict[str, int] = {}
     files = _store_files()
     for i, line in routes:
         kw_part, target = line.split("→", 1)
@@ -301,6 +396,18 @@ def _router_problem(path: str, text: str) -> str | None:
                         f"{seen[k]!r}. Keywords are unique inside one table; give this "
                         "child its own word.")
             seen[k] = target
+        if target in seen_targets:
+            return (f"[dynmem] line {i}: {target} already has a route in this table "
+                    f"(line {seen_targets[target]}). One route per child — merge the "
+                    "keywords into that line instead.")
+        seen_targets[target] = i
+        if _index_line_for(target):
+            return (f"[dynmem] line {i}: {target} already has an index line. A memory has "
+                    "one home: remove its index line before making it a child here.")
+        parent = _other_parent(target, Path(path).name)
+        if parent:
+            return (f"[dynmem] line {i}: {target} is already a child of {parent}. "
+                    "One parent per memory — move the edge, don't copy it.")
     return None
 
 
@@ -1109,6 +1216,7 @@ def handle_pre_tool_call(
         # error. The previous version split on "\n§\n", which on a newline-
         # delimited file yields ONE entry containing the whole file — so any
         # old_text matched everything and the file was replaced wholesale.
+        replaced_line = None
         if action in ("replace", "patch") and old_text:
             # Read current file content from disk for boundary check
             try:
@@ -1128,6 +1236,7 @@ def handle_pre_tool_call(
             # Safety: a replace must never reduce the entry count by more than
             # one line. This makes whole-file clobber structurally impossible.
             old_line = entries[matches[0]]
+            replaced_line = old_line
             # A separator line is never a valid replace target: replacing it
             # would delete the runtime's own entry boundary instead of content.
             if _is_separator_line(old_line):
@@ -1174,6 +1283,9 @@ def handle_pre_tool_call(
             # `memory` tool while every other tool was locked, so agents looped.
             # Validate only that the target is a legal filename and pass through.
             if _validate_arrow_target(content):
+                problem = _index_line_semantics(content, exclude_line=replaced_line)
+                if problem:
+                    return {"action": "block", "message": problem}
                 return {}
             band = _keyword_band_error(content)
             if band:

@@ -108,3 +108,17 @@ def test_synapse_refuses_a_child_of_another_parent(store):
     # child.md is already routed by parent.md, so this table may not claim it too
     problem = store._router_problem(path, text)
     assert problem and "already a child of parent.md" in problem
+
+
+def test_engram_quoting_a_route_line_is_not_a_parent(store):
+    """A memory that documents the format may contain a route-shaped line.
+
+    Only pure routing tables are parents; counting prose-bearing engrams would
+    block a lawful index add (the live store has 112 such files).
+    """
+    mem = store._memory_dir()
+    (mem / "notes.md").write_text(
+        "# notes\n\nExample of the format:\n"
+        f"alpha beta gamma delta epsilon {ARROW} gamma.md\n\nMore prose here.\n",
+        encoding="utf-8")
+    assert _add(store, f"fresh novel unused words here {ARROW} gamma.md") == {}

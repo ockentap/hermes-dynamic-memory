@@ -282,7 +282,13 @@ def _index_line_for(target: str, exclude_line: str | None = None) -> str | None:
 
 
 def _other_parent(target: str, skip: str) -> str | None:
-    """A synapse other than `skip` that already routes to `target`."""
+    """A synapse other than `skip` that already routes to `target`.
+
+    Only pure routing tables count as parents. An engram may legitimately contain
+    a route-shaped line (a documented example, a quoted index line); treating that
+    as a parent edge would block a lawful write. Same definition the validator and
+    `_router_problem` use: every non-comment line is a route.
+    """
     memdir = _memory_dir()
     for name in sorted(_store_files()):
         if name in {"MEMORY.md", skip, target}:
@@ -291,8 +297,11 @@ def _other_parent(target: str, skip: str) -> str | None:
             body = (memdir / name).read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        for line in body.splitlines():
-            parts = _route_parts(line.strip())
+        lines = [l.strip() for l in body.splitlines() if l.strip() and not l.strip().startswith("#")]
+        if not lines or not all(ROUTE_LINE_RE.match(l) for l in lines):
+            continue
+        for line in lines:
+            parts = _route_parts(line)
             if parts and parts[1] == target:
                 return name
     return None

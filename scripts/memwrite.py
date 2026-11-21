@@ -65,10 +65,16 @@ def clean_kw(tokens: list[str]) -> list[str]:
     out = []
     for tok in tokens:
         t = tok.lower().strip(".,;:()[]`'\"")
-        if not t or not GOOD.match(t) or t in STOP or JUNK.search(t):
+        # the marker prefixes are load-bearing (!! never edit, ! never prune):
+        # they are not part of the keyword body, so validate the body and stick
+        # the prefix back instead of dropping the keyword as junk
+        m = re.match(r"^(!*)(.*)$", t)
+        prefix, body = (m.group(1), m.group(2)) if m else ("", t)
+        if not body or not GOOD.match(body) or body in STOP or JUNK.search(body):
             continue
-        if t not in out:
-            out.append(t)
+        kw = prefix + body
+        if kw not in out:
+            out.append(kw)
     return out
 
 

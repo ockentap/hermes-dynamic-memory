@@ -59,19 +59,31 @@ memory files.
 
 Read the transcript and write what must be remembered into the store.
 
+The CANDIDATES block is a slice of the routing tree: index lines, then the
+matched neurons' route lines, then their children as '<file> — <title>' (an
+engram, with the title it already carries). Treat it as the existing store.
+
 Rules:
 - Capture EVERY durable fact, decision, identifier, path, number and correction.
   Keep identifiers verbatim (they are how the facts are checked later).
 - Do not invent anything that is not in the transcript.
+- Triage before writing: if a candidate engram's title covers the fact, mode
+  "update" that file — do not create a near-duplicate. If a candidate NEURON
+  covers the subject but no engram does, mode "new" with that neuron's existing
+  name: its route lines merge, and add only the new engram(s).
+- Create a new neuron only when no candidate line covers the subject. Never a
+  sibling neuron for a topic that already has one.
 - One subject per engram, 2-6 KB each; split a rich subject into aspect engrams.
-  Never one giant engram.
+  Never one giant engram. An engram shown near the 7 KB ceiling must NOT be
+  extended: add a new aspect engram under the same neuron instead.
 - An engram starts '# <title>', then 'Part of: <neuron>.md.', then the content.
 - A neuron contains only route lines: 5-20 space-separated keywords, Unicode →,
   no commas.
-- The index line points at the neuron.
-- If a fact belongs to an existing memory shown in the candidate list, use mode
-  "update" with that file as target instead of creating a duplicate. If nothing
-  covers the facts, mode "new" is correct.
+- The index line points at the neuron. Its keywords must not repeat a keyword
+  already used on another index line — pick the specific ones for this topic.
+- Depth stays shallow: index → neuron → engram. Do not add a neuron whose child
+  is another neuron unless the candidate tree already has that shape.
+- If nothing covers the facts, mode "new" is correct.
 
 Reply with JSON only:
 {"plans":[
@@ -120,9 +132,71 @@ def _index_lines(store: pathlib.Path):
     return out
 
 
+def _route_body(path: pathlib.Path) -> list[str]:
+    try:
+        body = [l.strip() for l in path.read_text(encoding="utf-8", errors="replace").splitlines()
+                if l.strip() and not l.strip().startswith("#")]
+    except OSError:
+        return []
+    return [l for l in body if ARROW in l]
+
+
+def _is_table(path: pathlib.Path) -> bool:
+    """A neuron: at least half the non-comment body is route lines."""
+    try:
+        body = [l.strip() for l in path.read_text(encoding="utf-8", errors="replace").splitlines()
+                if l.strip() and not l.strip().startswith("#")]
+    except OSError:
+        return False
+    routes = [l for l in body if ARROW in l]
+    return bool(routes) and len(routes) / max(1, len(body)) >= 0.5
+
+
+def _title(path: pathlib.Path, limit: int = 72) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    for line in text.splitlines()[:8]:
+        if line.startswith("# "):
+            return line[2:].strip()[:limit]
+    first = next((l.strip() for l in text.splitlines() if l.strip()), "")
+    return first[:limit]
+
+
+def _expand(store: pathlib.Path, path: pathlib.Path, out: list[str],
+            depth: int, indent: str, seen: set[str]) -> None:
+    """Walk one branch of the routing tree, carrying descendant TITLES.
+
+    The triage decision the optimiser has to make is update-vs-new at the
+    engram level. Index lines and neuron route lines only name the children;
+    two hops down without their titles the model is guessing, and a guess
+    becomes a duplicate engram.
+    """
+    if depth <= 0 or path.name in seen or not path.exists():
+        return
+    seen.add(path.name)
+    if _is_table(path):
+        for route in _route_body(path)[:5]:
+            out.append(indent + route)
+            m = ROUTE_LINE.match(route)
+            if m:
+                _expand(store, store / m.group("t"), out, depth - 1, indent + "  ", seen)
+    else:
+        title = _title(path)
+        try:
+            kb = max(1, round(path.stat().st_size / 1024))
+        except OSError:
+            kb = 0
+        if title:
+            out.append(f"{indent}{path.name} — {title} ({kb} KB)")
+        elif kb:
+            out.append(f"{indent}{path.name} ({kb} KB)")
+
+
 def candidate_block(store: pathlib.Path, text: str, limit: int = 12,
-                    budget_chars: int = 5200) -> str:
-    """The few index lines that could possibly matter, plus their children.
+                    budget_chars: int = 5200, depth: int = 2) -> str:
+    """The few index lines that could possibly matter, plus their descendants.
 
     IDF-weighted overlap, so a rare topical word outweighs a common one. When
     nothing scores, the block is empty and the prompt says a new topic is fine —
@@ -146,16 +220,10 @@ def candidate_block(store: pathlib.Path, text: str, limit: int = 12,
     if not scored:
         return ""
     out = []
+    seen: set[str] = set()
     for _, kws, target in scored[:limit]:
         out.append(" ".join(kws[:8]) + " → " + target)
-        child = store / target
-        if child.exists():
-            body = [l.strip() for l in child.read_text(encoding="utf-8", errors="replace").splitlines()
-                    if l.strip() and not l.strip().startswith("#")]
-            routes = [l for l in body if "→" in l]
-            if routes and len(routes) / len(body) >= 0.5:
-                for route in routes[:5]:
-                    out.append("    " + route)
+        _expand(store, store / target, out, depth, "    ", seen)
     block, size = [], 0
     for line in out:
         if size + len(line) > budget_chars:
@@ -211,7 +279,16 @@ def index_keywords(store: pathlib.Path) -> set[str]:
     return out
 
 
-def repair_plan(plan: dict, extra_text: str = "", avoid_words=()) -> dict:
+def index_targets(store: pathlib.Path) -> set[str]:
+    """Files that already own a top-level index line."""
+    try:
+        text = (store / "MEMORY.md").read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    return {m.group("t") for m in (ROUTE_LINE.match(l.strip()) for l in text.splitlines()) if m}
+
+
+def repair_plan(plan: dict, extra_text: str = "", avoid_words=(), top_level=()) -> dict:
     """Normalise a model plan into the shape memwrite validates.
 
     Models emit index lines with commas, prose, or a missing arrow; memwrite
@@ -222,6 +299,12 @@ def repair_plan(plan: dict, extra_text: str = "", avoid_words=()) -> dict:
     plan = dict(plan)
     mode = str(plan.get("mode") or "new").strip().lower()
     plan["mode"] = mode if mode in {"new", "update"} else "new"
+
+    if plan["mode"] == "update":
+        target = str(plan.get("target") or "").strip()
+        if target and target not in set(top_level):
+            plan.pop("index_line", None)   # engram: already reachable via its neuron
+            return plan
 
     def words(text: str) -> list[str]:
         text = text.replace("\u2192", " ").replace("->", " ")
@@ -324,7 +407,7 @@ def plan_once(store: pathlib.Path, body: str, context_block: str, heading: str,
 
     written, failed = [], []
     for plan in plans:
-        plan = repair_plan(plan, body, index_keywords(store))
+        plan = repair_plan(plan, body, index_keywords(store), index_targets(store))
         # an engram that already exists aborts the whole plan in memwrite; keep
         # the route and drop just the colliding file so the facts still land
         if plan.get("mode") == "new":

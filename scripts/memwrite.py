@@ -211,6 +211,20 @@ def apply_plan(store: pathlib.Path, plan: dict) -> list[str]:
         index_line = plan.get("index_line", "").strip()
         if index_line:
             m_idx = ROUTE.match(index_line)
+            existing_targets = set()
+            for line in index.splitlines():
+                mm = ROUTE.match(line.strip())
+                if mm:
+                    existing_targets.add(mm.group("t"))
+            # an update to an engram must not mint a top-level line for it: the
+            # file is already reachable through its neuron, and a second home is
+            # the DOUBLE-HOMED defect. Only refresh a line the target already owns.
+            if not m_idx or m_idx.group("t") != target or target not in existing_targets:
+                plan = dict(plan)
+                plan.pop("index_line", None)
+                index_line = ""
+        if index_line:
+            m_idx = ROUTE.match(index_line)
             if not m_idx:
                 die("plan.index_line is not a route line")
             kept, replaced = [], False

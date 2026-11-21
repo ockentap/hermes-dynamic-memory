@@ -111,8 +111,13 @@ def normalise(store: pathlib.Path) -> dict[str, int]:
                 continue
             kws = clean_kw(m.group("kw").split())
             before = len(kws)
-            kws = [k for k in kws if k not in used]
-            stats["dropped"] += before - len(kws)
+            deduped = [k for k in kws if k not in used]
+            stats["dropped"] += before - len(deduped)
+            if len(deduped) < MIN_KW:
+                # dropping every tier-wide repeat can leave a line that fails
+                # the 5-keyword floor; a duplicate keyword is the lesser defect
+                deduped = kws
+            kws = deduped
             if len(kws) < MIN_KW:
                 extra = clean_kw(re.findall(r"[a-z][a-z0-9_.\-]{2,}", target[:-3].lower())
                                  + title_words(store / target))
@@ -247,18 +252,34 @@ def main() -> int:
     plan = json.loads(raw)
 
     with tempfile.TemporaryDirectory() as tmp:
+        # Baseline: what the store ALREADY fails on, in the same normalised
+        # shape the plan is judged in, so pre-existing debt cannot be mistaken
+        # for damage the plan did.
+        base = pathlib.Path(tmp) / "base"
+        shutil.copytree(store, base)
+        normalise(base)
+        base_code, base_summary = validate(base)
+        base_fails = {l for l in base_summary.splitlines() if l.startswith("  [FAIL]")}
+
         shadow = pathlib.Path(tmp) / "store"
         shutil.copytree(store, shadow)
         touched = apply_plan(shadow, plan)
         stats = normalise(shadow)
         code, summary = validate(shadow)
+        new_fails = [l for l in summary.splitlines()
+                     if l.startswith("  [FAIL]") and l not in base_fails]
         if not args.quiet:
             print(f"plan: {plan.get('mode')}  files: {', '.join(touched)}")
             print(f"normalise: {stats['tables']} table(s), -{stats['dropped']} dup/junk, +{stats['topped']} topped up")
             print(summary)
-        if code != 0:
-            print("memwrite: shadow validation failed — nothing written", file=sys.stderr)
+        if new_fails:
+            print("memwrite: the plan introduces new defects — nothing written:", file=sys.stderr)
+            for line in new_fails[:5]:
+                print(line, file=sys.stderr)
             return code
+        if code != 0 and base_fails:
+            print(f"memwrite: {len(base_fails)} pre-existing store defect(s) tolerated; "
+                  "the plan adds none", file=sys.stderr)
         if args.dry_run:
             if args.quiet:
                 verdict = next((l for l in summary.splitlines() if "lines OK" in l), "")

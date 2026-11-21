@@ -31,10 +31,27 @@ import time
 HERE = pathlib.Path(__file__).resolve().parent
 MEMWRITE = HERE / "memwrite.py"
 WATERMARK = pathlib.Path.home() / ".hermes" / "state" / "optimizer-watermark.json"
-STATE_DB = pathlib.Path.home() / ".hermes" / "state.db"
+DEFAULT_STATE_DB = pathlib.Path.home() / ".hermes" / "state.db"
+
+
+def resolve_state_db(store: pathlib.Path) -> pathlib.Path:
+    """The state.db that owns this store.
+
+    A profile store lives at <profile>/memories, so its database is the sibling
+    <profile>/state.db — never the root ~/.hermes/state.db, which belongs to the
+    default profile and has no rows for the sessions the gateway is writing.
+    """
+    candidate = store.parent / "state.db"
+    if candidate.exists():
+        return candidate
+    return DEFAULT_STATE_DB
+
 
 sys.path.insert(0, str(HERE))
 import lookup  # noqa: E402  (shared provider + index helpers)
+
+ARROW = "\u2192"
+ROUTE_LINE = re.compile(r"^(?P<kw>.+?)\s*(?:\u2192|->)\s*(?P<t>[A-Za-z0-9_.\-]+\.md)\s*$")
 
 SYSTEM = """You maintain a dynmem memory store: the index lists neurons, a neuron is
 a table of route lines 'keyword keyword → child.md', and engrams are the terminal
@@ -77,8 +94,8 @@ def save_watermark(data: dict) -> None:
     WATERMARK.write_text(json.dumps(data, indent=1))
 
 
-def session_messages(session_id: str, after_id: int, limit: int = 60) -> list[dict]:
-    c = sqlite3.connect(f"file:{STATE_DB}?mode=ro", uri=True)
+def session_messages(db: pathlib.Path, session_id: str, after_id: int, limit: int = 60) -> list[dict]:
+    c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     rows = c.execute(
         "select id, role, content from messages where session_id=? and id>? and role in ('user','assistant')"
         " and content is not null order by id limit ?", (session_id, after_id, limit)).fetchall()
@@ -180,6 +197,95 @@ def extract_plans(text: str) -> list[dict]:
     return []
 
 
+def index_keywords(store: pathlib.Path) -> set[str]:
+    """Every keyword already on some index line — a new line may not repeat one."""
+    try:
+        text = (store / "MEMORY.md").read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    out: set[str] = set()
+    for line in text.splitlines():
+        m = ROUTE_LINE.match(line.strip())
+        if m:
+            out.update(m.group("kw").split())
+    return out
+
+
+def repair_plan(plan: dict, extra_text: str = "", avoid_words=()) -> dict:
+    """Normalise a model plan into the shape memwrite validates.
+
+    Models emit index lines with commas, prose, or a missing arrow; memwrite
+    rejects the whole plan over that one field, optimize counts it as a failure
+    and the watermark never advances, so the same message is retried forever and
+    nothing is ever saved. Repair the format instead of failing the plan.
+    """
+    plan = dict(plan)
+    mode = str(plan.get("mode") or "new").strip().lower()
+    plan["mode"] = mode if mode in {"new", "update"} else "new"
+
+    def words(text: str) -> list[str]:
+        text = text.replace("\u2192", " ").replace("->", " ")
+        return [w for w in re.split(r"[,\s]+", text.strip()) if w]
+
+    def pad(kw: str, target: str) -> str:
+        """5-20 keywords that do not collide with a keyword already in the index."""
+        avoid = set(avoid_words)
+        have = [w for w in words(kw) if w not in avoid]
+        if len(have) >= 5:
+            return " ".join(have[:20])
+        pool = words(target[:-3].replace("_", " ").replace("-", " "))
+        pool += words(str((plan.get("engrams") or [{}])[0].get("content", ""))[:400]) \
+            if plan.get("engrams") else []
+        pool += words(extra_text[:600])
+        for w in pool:
+            w = w.lower().strip(".,;:()[]`'\"")
+            if re.fullmatch(r"[a-z0-9][a-z0-9_.\-]{1,47}", w) and w not in avoid and w not in have:
+                have.append(w)
+            if len(have) >= 6:
+                break
+        return " ".join(have[:20])
+
+    # neuron route lines: every line needs an arrow or memwrite aborts the plan
+    if plan["mode"] == "new":
+        neuron = dict(plan.get("neuron") or {})
+        engrams = [e for e in (plan.get("engrams") or []) if isinstance(e, dict)]
+        fallback_target = (engrams[0].get("name") if engrams else "") or ""
+        lines = []
+        for line in neuron.get("lines") or []:
+            line = str(line).strip()
+            if not ROUTE_LINE.match(line) and fallback_target:
+                line = f"{' '.join(words(line))} \u2192 {fallback_target}"
+            if ROUTE_LINE.match(line):
+                km = ROUTE_LINE.match(line)
+                assert km is not None
+                kw, target = km.group("kw"), km.group("t")
+                lines.append(f"{pad(kw, target)} \u2192 {target}")
+        if lines:
+            neuron["lines"] = lines
+            plan["neuron"] = neuron
+
+    idx = str(plan.get("index_line") or "").strip()
+    m = ROUTE_LINE.match(idx)
+    if m:
+        kw, target = m.group("kw"), m.group("t")
+        plan["index_line"] = f"{pad(kw, target)} \u2192 {target}"
+        return plan
+
+    # no usable line: rebuild one from the plan's own names
+    target = ""
+    if plan["mode"] == "new":
+        target = str((plan.get("neuron") or {}).get("name") or "").strip()
+    else:
+        target = str(plan.get("target") or "").strip()
+    if target and ROUTE_LINE.match("x \u2192 " + target):
+        kw = " ".join(words(idx)) or " ".join(words(target[:-3].replace("_", " ").replace("-", " ")))
+        if kw:
+            plan["index_line"] = f"{pad(kw, target)} \u2192 {target}"
+            return plan
+    plan.pop("index_line", None)  # legal on update; memwrite sorts it out on new
+    return plan
+
+
 def plan_once(store: pathlib.Path, body: str, context_block: str, heading: str,
               dry_run: bool) -> tuple[list[str], list[tuple], int]:
     """One message -> plans -> memwrite. Returns (written, failed, tokens)."""
@@ -218,6 +324,16 @@ def plan_once(store: pathlib.Path, body: str, context_block: str, heading: str,
 
     written, failed = [], []
     for plan in plans:
+        plan = repair_plan(plan, body, index_keywords(store))
+        # an engram that already exists aborts the whole plan in memwrite; keep
+        # the route and drop just the colliding file so the facts still land
+        if plan.get("mode") == "new":
+            fresh = [e for e in (plan.get("engrams") or [])
+                     if isinstance(e, dict) and not (store / str(e.get("name", ""))).exists()]
+            if len(fresh) != len(plan.get("engrams") or []):
+                plan["engrams"] = fresh
+                if not fresh:
+                    continue
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
             json.dump(plan, f)
             path = f.name
@@ -237,6 +353,8 @@ def main() -> int:
     ap.add_argument("--store", required=True)
     ap.add_argument("--session")
     ap.add_argument("--transcript")
+    ap.add_argument("--state-db",
+                    help="session database to read (default: the store's sibling state.db)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--quiet", action="store_true")
@@ -254,8 +372,9 @@ def main() -> int:
         key = f"{store.resolve()}::transcript:" + pathlib.Path(args.transcript).name
     elif args.session:
         key = f"{store.resolve()}::{args.session}"
+        db = pathlib.Path(args.state_db).expanduser() if args.state_db else resolve_state_db(store)
         after = 0 if args.force else int(wm.get(key, 0))
-        msgs = session_messages(args.session, after, args.max_messages)
+        msgs = session_messages(db, args.session, after, args.max_messages)
     else:
         print("optimize: need --session or --transcript", file=sys.stderr)
         return 2

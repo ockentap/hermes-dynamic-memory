@@ -50,6 +50,14 @@ it as mid-turn status rather than the final answer.
 
 Log: `~/.hermes/state/memnotify.log`, one line per send with the adapter result.
 
+## TUI and CLI
+
+A TUI/desktop turn has no chat row, so the same line is emitted on the TUI notice
+bus (`tui_gateway.agent_callbacks._agent_notice_update` → `notification.show`),
+20 s ttl, only when that module is already loaded in the process. A Telegram
+gateway never imports the TUI server just to try. A headless `hermes chat` turn
+keeps its normal tool rows.
+
 ## Limits
 
 - Telegram only.

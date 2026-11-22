@@ -196,6 +196,33 @@ def _send(chat_id: str, text: str, thread_id: str | None) -> None:
         _log_line(f"send failed: {exc}")
 
 
+def _tui_notice(session_id: str, text: str) -> None:
+    """Same line on the TUI/desktop notice bus, only when that host is loaded.
+
+    ``notification.show`` is what credits warnings and model-switch notices use.
+    The callbacks module rebinds its emitter to the TUI server, so the call is
+    made through it and only when it is already in ``sys.modules`` — importing
+    the TUI server into a Telegram gateway just to try would be a side effect
+    nobody asked for.
+    """
+    import sys
+
+    try:
+        ac = sys.modules.get("tui_gateway.agent_callbacks")
+        if ac is None:
+            return
+        from types import SimpleNamespace
+
+        # duck-typed notice: the bus only reads these fields, and importing the
+        # credits tracker here drags in provider deps a gateway may not load
+        notice = SimpleNamespace(text=text, level="info", kind="ttl", ttl_ms=20000,
+                                 key="memnotify", id=f"memnotify:{time.time():.0f}")
+        ac._agent_notice_update(session_id, notice)
+        _log_line(f"notice {session_id} {text!r}")
+    except Exception as exc:
+        _log_line(f"notice skip {session_id}: {exc}")
+
+
 def _on_pre_tool_call(tool_name: str = "", args: dict | None = None, tool_call_id: str = "", **_kw):
     try:
         if (tool_name or "") in {"write_file", "patch"} and tool_call_id:
@@ -226,6 +253,7 @@ def _on_post_tool_call(tool_name: str = "", args: dict | None = None, result=Non
             _seen.clear()
         target = _target(session_id)
         if target is None:
+            _tui_notice(session_id, line)
             return None
         _send(target[0], line, target[1])
     except Exception as exc:  # never break a tool call

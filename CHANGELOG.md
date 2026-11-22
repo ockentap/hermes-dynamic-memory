@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.13.0 — 2026-11-21
 
+- **Cross-line index invariants (plugin).** An index write that would give a file
+  a second entry point is refused: a line whose target already has one
+  (`DUPLICATE TARGET`), a line for a file already reachable through a synapse
+  (`DOUBLE-HOMED`), and a synapse that would make a file its own parent are all
+  rejected with the offending line quoted back.
 - **`optimize.py` read the wrong database.** It opened `~/.hermes/state.db`
   (the default profile) instead of the profile's own `state.db`, so every gateway
   session looked empty: 443 idle runs, all `nothing new to remember`, watermark

@@ -1,0 +1,8 @@
+name: memnotify
+version: 0.1.0
+description: "Puts a 🧠 reaction on the user's own message whenever the agent reads or writes dynmem memory in that turn — one reaction per turn, never a chat message."
+author: ockentap
+provides_hooks:
+  - post_tool_call
+capabilities:
+  - gateway.platform_actions

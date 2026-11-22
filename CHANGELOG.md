@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+- **`optimize.py` read the wrong database.** It opened `~/.hermes/state.db`
+  (the default profile) instead of the profile's own `state.db`, so every gateway
+  session looked empty: 443 idle runs, all `nothing new to remember`, watermark
+  never advanced. `resolve_state_db(store)` now takes the store's sibling DB;
+  `--state-db` overrides.
+- **The write gate judged the backlog, not the plan.** `memwrite.py` validated the
+  whole shadow store, so 57 pre-existing tier-1 keyword collisions refused every
+  write with `shadow validation failed`. It now validates a normalised baseline
+  and refuses only defects the plan introduces; `normalise()` keeps the 5-keyword
+  floor and the `!!` / `!` marker prefixes (a `GOOD` regex requiring a `[a-z0-9]`
+  start used to strip them on the first successful write).
+- **Plans are repaired, not discarded.** `repair_plan()` normalises index and
+  neuron lines, pads keywords to the 5-20 band while avoiding keywords the index
+  already owns, and drops engrams whose file already exists.
+- **The optimiser triages on the routing tree.** Candidates now walk two hops and
+  carry `file — title (n KB)` for every engram they reach, so update-vs-new is
+  decided on what a file covers instead of its name. The prompt says: update the
+  engram whose title covers the fact, otherwise add a route line to the existing
+  neuron, and only then create one. An update plan cannot mint a top-level index
+  line for an engram (DOUBLE-HOMED).
+- **New plugin `plugin/memnotify`.** Posts a short chat line per memory
+  operation (`🧠 <file> read`, `🧠 Updating <file>`, `🧠 <file> created`,
+  `🧠 memories searched`); see `docs/memnotify.md`.
+
 ## 1.12.1 — 2026-11-10
 
 - **`parse_index` reads the live keyword format again.** It split keywords on

@@ -28,7 +28,7 @@ def slug(text: str, limit: int = 34) -> str:
     return "-".join(out)[:limit] or "part"
 
 
-def parse(text: str):
+def parse(text: str, marker: str = '## '):
     lines = text.splitlines()
     title = next((l.lstrip("# ").strip() for l in lines if l.startswith("# ")), "Engram")
     sections, cur = [], None
@@ -36,7 +36,7 @@ def parse(text: str):
     for line in lines:
         if line.startswith("# "):
             continue
-        if line.startswith("## "):
+        if line.startswith(marker) and not line.startswith(marker + '#'):
             if cur:
                 sections.append(cur)
             cur = [line, ""]
@@ -61,6 +61,67 @@ def group(sections, budget=CHUNK):
     return out
 
 
+def plan_groups(sections, budget=CHUNK):
+    """Group sections into file-sized chunks, splitting a section that alone
+    exceeds the budget.
+
+    Splitting on H2 only works while every H2 is small. One 22 KB "Gotchas"
+    section produced a 22 KB 'part', so an oversized section is now chunked at
+    paragraph boundaries and each chunk keeps the heading with a '— part N'
+    suffix, which also makes its filename unique.
+    """
+    units = []
+    for sec in sections:
+        text = "\n".join(sec)
+        if len(text) <= budget * 1.5:
+            units.append(sec)
+            continue
+        head, body = sec[0], sec[1:]
+        blocks = [p for p in "\n".join(body).split("\n\n") if p.strip()]
+        # a bullet list with no blank lines is one huge "paragraph": fall back
+        # to line chunks so the section can still be cut
+        if len(blocks) == 1 and len(blocks[0]) > budget:
+            lines = body
+            blocks, cur, size = [], [], 0
+            for line in lines:
+                if cur and size + len(line) > budget:
+                    blocks.append("\n".join(cur))
+                    cur, size = [], 0
+                cur.append(line.rstrip("\n"))
+                size += len(line) + 1
+            if cur:
+                blocks.append("\n".join(cur))
+        # any single block still over budget (one dense paragraph, a long
+        # code fence) is cut by lines so no part can exceed the ceiling
+        fixed = []
+        for b in blocks:
+            if len(b) <= budget:
+                fixed.append(b)
+                continue
+            cur, size2 = [], 0
+            for line in b.split("\n"):
+                if cur and size2 + len(line) > budget:
+                    fixed.append("\n".join(cur))
+                    cur, size2 = [], 0
+                cur.append(line)
+                size2 += len(line) + 1
+            if cur:
+                fixed.append("\n".join(cur))
+        blocks = fixed
+        part, size, n = [], 0, 0
+        for para in blocks:
+            if part and size + len(para) > budget:
+                n += 1
+                units.append([f"{head} — part {n}", ""] + part)
+                part, size = [], 0
+            part.append(para + "\n")
+            size += len(para) + 2
+        if part:
+            n += 1
+            units.append([head if n == 1 else f"{head} — part {n}", ""] + part)
+    return group(units, budget)
+
+
 def keywords_for(title_line: str, stem: str, used: set[str]) -> list[str]:
     words = [w for w in re.findall(r"[a-z][a-z0-9_.\-]{2,}", (title_line + " " + stem).lower())]
     kws = []
@@ -73,6 +134,23 @@ def keywords_for(title_line: str, stem: str, used: set[str]) -> list[str]:
             break
         if filler not in used and filler not in kws:
             kws.append(filler)
+    # a heading can exhaust the shared pool ("Gotchas — part 2" after part 1):
+    # derive stable tokens from the heading's last word + digit so the line
+    # still carries 5 keywords instead of coming out empty
+    if len(kws) < 5:
+        tail = [w for w in re.findall(r"[a-z]+", title_line.lower()) if w not in used]
+        digit = re.search(r"(\d+)\s*$", title_line or "")
+        for base in tail[-2:] or ["part"]:
+            for n in ([digit.group(1)] if digit else []) + [str(i) for i in range(2, 9)]:
+                tok = f"{base}{n}"
+                if tok not in used and tok not in kws:
+                    kws.append(tok)
+                if len(kws) >= 5:
+                    break
+            if len(kws) >= 5:
+                break
+    while len(kws) < 5:
+        kws.append(f"part{len(kws) + 1}")
     return kws[:20]
 
 
@@ -93,19 +171,29 @@ def main() -> int:
 
     title, preamble, sections = parse(text)
     if len(sections) < 2:
-        print(f"{target}: {len(sections)} section(s) — needs a manual split")
-        return 2
-    groups = group(sections)
+        # a file whose only structure is H3 under one H2 still splits
+        t3, p3, s3 = parse(text, marker="### ")
+        if len(s3) >= 2:
+            title, preamble, sections = t3, p3, s3
+    if len(sections) < 2:
+        # last resort: cut the body itself. A long narrative with no headings is
+        # still too big for one engram; plan_groups chunks it by paragraph/line.
+        body = [l for l in text.splitlines()[1:] if not l.lower().startswith("part of:")]
+        sections = [[f"## {title}", ""] + body]
+        print(f"{target}: no headings — cutting the body into parts")
+    groups = plan_groups(sections)
     stem = target[:-3]
     used = {k.lstrip("!") for line in neuron.splitlines()
             for m in [ROUTE.match(line.strip())] if m
             for k in m.group("kw").split()}
-    plan = []
+    plan, seen = [], {}
     for i, g in enumerate(groups, 1):
         head = g[0][0].lstrip("# ").strip()
-        name = f"{stem}-{slug(head)}.md"
+        base = f"{stem[:34]}-{slug(head)}.md"
+        seen[base] = seen.get(base, 0) + 1
+        name = base if seen[base] == 1 else f"{base[:-3]}-{seen[base]}.md"
         if (store / name).exists():
-            name = f"{stem}-{slug(head)}-{i}.md"
+            name = f"{base[:-3]}-{i}.md"
         plan.append((name, head, g))
 
     for name, head, g in plan:

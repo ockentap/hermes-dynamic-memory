@@ -1,0 +1,608 @@
+{
+ "title": "Dynmem vs XERJ \u2014 top-1 topic-file routing",
+ "date": "2026-11-27",
+ "corpus": {
+  "files": 252,
+  "hub_entries": 149,
+  "child_files": 108,
+  "chunks": 488,
+  "bytes": 654637
+ },
+ "queries": {
+  "count": 40,
+  "keyword_style": 20,
+  "question_style": 20,
+  "ground_truth": "topic file (hub) containing the answer"
+ },
+ "systems": {
+  "dynmem": "index routing by deepseek-v4.1-flash over the keyword index only",
+  "xerj": "v1.0.0-rc.105, musl build, fresh data dir"
+ },
+ "summary": {
+  "dynmem_llm_route": {
+   "top1": 40,
+   "top3": 40,
+   "n": 40,
+   "keyword_top1": 20,
+   "question_top1": 20,
+   "mrr": 1.0
+  },
+  "dynmem_kw_matcher": {
+   "top1": 31,
+   "top3": 35,
+   "n": 40,
+   "keyword_top1": 19,
+   "question_top1": 12,
+   "mrr": 0.812
+  },
+  "dynmem_kw_plus_grep": {
+   "top1": 36,
+   "top3": 36,
+   "n": 40,
+   "keyword_top1": 20,
+   "question_top1": 16,
+   "mrr": 0.9
+  },
+  "xerj_lexical_cli": {
+   "top1": 37,
+   "top3": 39,
+   "n": 40,
+   "keyword_top1": 19,
+   "question_top1": 18,
+   "mrr": 0.95
+  },
+  "xerj_lexical_es": {
+   "top1": 37,
+   "top3": 37,
+   "n": 40,
+   "keyword_top1": 20,
+   "question_top1": 17,
+   "mrr": 0.925
+  },
+  "xerj_semantic": {
+   "top1": 30,
+   "top3": 30,
+   "n": 40,
+   "keyword_top1": 15,
+   "question_top1": 15,
+   "mrr": 0.766
+  },
+  "xerj_hybrid_rrf": {
+   "top1": 33,
+   "top3": 35,
+   "n": 40,
+   "keyword_top1": 17,
+   "question_top1": 16,
+   "mrr": 0.846
+  }
+ },
+ "per_query": [
+  {
+   "id": 1,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 2,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 3,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 4,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 5,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": false
+   }
+  },
+  {
+   "id": 6,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 7,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": false
+   }
+  },
+  {
+   "id": 8,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 9,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 10,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 11,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 12,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 13,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 14,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": false,
+    "xerj_lexical_es": true,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": false
+   }
+  },
+  {
+   "id": 15,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 16,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 17,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 18,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 19,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 20,
+   "style": "keyword",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 21,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": false,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 22,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": false,
+    "xerj_lexical_es": false,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": false
+   }
+  },
+  {
+   "id": 23,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": false,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 24,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": false,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": false
+   }
+  },
+  {
+   "id": 25,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 26,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 27,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 28,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": false,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": false,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 29,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 30,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": false,
+    "xerj_lexical_es": true,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": false
+   }
+  },
+  {
+   "id": 31,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 32,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 33,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 34,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": false,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 35,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 36,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 37,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 38,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": false,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": false,
+    "xerj_hybrid_rrf": false
+   }
+  },
+  {
+   "id": 39,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  },
+  {
+   "id": 40,
+   "style": "question",
+   "hit": {
+    "dynmem_llm_route": true,
+    "dynmem_kw_matcher": true,
+    "dynmem_kw_plus_grep": true,
+    "xerj_lexical_cli": true,
+    "xerj_lexical_es": true,
+    "xerj_semantic": true,
+    "xerj_hybrid_rrf": true
+   }
+  }
+ ],
+ "notes": [
+  "Anonymised: query text, file names and topics are not published.",
+  "XERJ lexical CLI is the default `xerj search`; ES is `multi_match` over title^2, body, text.",
+  "Semantic and hybrid require --embed-mode neural (all-MiniLM-L6-v2); hybrid fusion = RRF.",
+  "dynmem_kw_matcher / kw_plus_grep are mechanical baselines, not the product path.",
+  "Single run, 40 prompts, hub-level credit; child-file hits are mapped to their parent hub."
+ ]
+}

@@ -93,7 +93,7 @@ Question: does the system surface that file first?
 - **dynmem 10/10 first hit, 10/10 in the top ten.**
 - Best competitor **5/10** first hit, 8/10 in the top ten.
 - Adding embeddings to the competitor moved first-hit accuracy by **zero** and top-ten by one prompt.
-  Precision here comes from a curated index, not from vectors.
+  Precision here comes from dynmem's keyword index, not from vectors.
 
 ### 2. Resident cost — what every turn pays
 
@@ -156,12 +156,35 @@ cost 37,572. Past roughly **300 topics** it needs pruning or archiving — that 
 
 ---
 
+## Dynmem vs XERJ
+
+<p align="center">
+  <img src="docs/charts/xerj-routing-2026-11.svg" width="900" alt="Routing: dynmem 40/40 vs XERJ 37/40 first hit">
+</p>
+
+A separate run on the real store: 252 files / 488 chunks, 40 prompts — 20 keyword-style, 20
+paraphrases. **dynmem routed 40/40 to the right topic file.** XERJ `v1.0.0-rc.105` — a Rust
+search engine with BM25, vectors, hybrid fusion, an Elasticsearch-compatible API and an MCP
+server — reached **37/40** in its default lexical mode, 33/40 with hybrid RRF and **30/40** with
+its neural embedder. Its three misses were sibling-topic collisions and one hub whose content
+lives in a linked child file; top-3 recall was 39/40.
+
+XERJ's edge is not accuracy. It answers in **3.9 ms** server-side, stores a **2.1 MB** index
+behind a 147 MB static binary, adds **zero resident tokens** to the prompt, and indexes whatever
+you point it at — code, PDFs, logs. dynmem's edge is its keyword map: ~4.5k tokens resident,
+no process to run, and the right file first on every prompt in this set.
+
+Method, per-prompt outcomes and limits: [`docs/xerj-vs-dynmem-2026-11.md`](docs/xerj-vs-dynmem-2026-11.md).
+
+---
+
 ## Scoreboard
 
 | | dynmem | best competitor | built-in memory |
 |---|---|---|---|
 | Routing, first hit (10 real prompts) | **10/10** | 5/10 | n/a — store doesn't fit |
 | Routing, top ten | **10/10** | 8/10 | n/a |
+| Routing, 40 prompts vs XERJ (search engine) | **40/40** | 37/40 lexical, 30/40 neural | n/a |
 | Resident cost per turn | 6,946 | **6,552** | 13,948 |
 | Write-step input tokens | **19,192** | 37,453 (with embeddings) | n/a |
 | Ingest per session | 24,322 | **23,338** | 0 — no detail tier |
@@ -169,8 +192,10 @@ cost 37,572. Past roughly **300 topics** it needs pruning or archiving — that 
 | Retractions respected | **7/7** | **7/7** | — |
 | Infrastructure needed | **none** | DB + 1.2 GB (CPU-only) to 5.4 GB (CUDA) embedding stack | none |
 
-Installed footprint, measured on this box rather than estimated: a CUDA build of the embedding stack
-is **5.4 GB** on disk — `torch` 2.15 (1.1 GB) plus 3.3 GB of `nvidia-*` CUDA-13 wheels plus `triton`
+The XERJ row is a separate 40-prompt run (*Dynmem vs XERJ*, above); XERJ is a purpose-built search engine, not a
+memory system, and is included because it is the closest thing to an off-the-shelf replacement
+for the index. Installed footprint, measured on this box rather than estimated: a CUDA build of
+the embedding stack is **5.4 GB** on disk — `torch` 2.15 (1.1 GB) plus 3.3 GB of `nvidia-*` CUDA-13 wheels plus `triton`
 (0.9 GB) — and `transformers` + `sentence-transformers` add ~70 MB on top of the model weights. The
 CPU-only wheel is the ~1.2 GB case. None of it is needed to run dynmem, which is the point of the row.
 
